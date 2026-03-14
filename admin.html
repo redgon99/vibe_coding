@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>출석 관리 - 소방서 QR 출석관리</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="page-header">
+    <h1>소방서 QR 출석관리</h1>
+    <p class="sub">관리자</p>
+  </header>
+
+  <main class="container">
+    <!-- 출석 세션 생성 -->
+    <section class="card">
+      <h2 class="card-title">출석 세션 만들기</h2>
+      <form id="formSession">
+        <div class="form-group">
+          <label for="inputDate">날짜</label>
+          <input type="date" id="inputDate" required>
+        </div>
+        <div class="form-group">
+          <label for="inputEducation">교육명</label>
+          <input type="text" id="inputEducation" placeholder="예: 소방안전교육 1회차" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">세션 생성 및 QR코드 만들기</button>
+      </form>
+    </section>
+
+    <!-- 현재 세션 QR코드 -->
+    <section class="card" id="cardQr" style="display: none;">
+      <h2 class="card-title">현재 세션 QR코드</h2>
+      <div class="qr-wrap">
+        <div id="qrcode"></div>
+        <p class="qr-session-info" id="qrSessionInfo"></p>
+      </div>
+    </section>
+
+    <!-- 세션 선택 (기존 세션 QR 보기) -->
+    <section class="card">
+      <h2 class="card-title">세션 선택</h2>
+      <div class="form-group">
+        <label for="selectSession">다른 세션의 QR·출석 보기</label>
+        <select id="selectSession">
+          <option value="">세션을 선택하세요</option>
+        </select>
+      </div>
+    </section>
+
+    <div class="grid-2" style="margin-top: 0.5rem;">
+      <!-- 출석 현황 실시간 -->
+      <section class="card">
+        <h2 class="card-title">출석 현황 <span id="attendCount" class="attend-count">(0명)</span></h2>
+        <ul class="attend-list" id="attendList"></ul>
+        <p class="empty-state" id="attendEmpty">출석한 인원이 없습니다.</p>
+      </section>
+
+      <!-- 부서별 출석 통계 차트 -->
+      <section class="card">
+        <h2 class="card-title">부서별 출석 통계</h2>
+        <div class="chart-wrap">
+          <canvas id="chartDept"></canvas>
+        </div>
+        <p class="empty-state" id="chartEmpty">세션을 선택하면 차트가 표시됩니다.</p>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/storage.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
