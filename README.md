@@ -4,6 +4,7 @@
 
 - **관리자**: [admin.html](admin.html) — 세션 생성, QR 표시, 출석 현황·차트
 - **출석**: QR 스캔 시 attend.html로 이동 후 이름·부서 입력
+- **테스트**: [scanner.html](scanner.html) — QR 스캐너 (카메라로 QR 인식 후 링크 이동)
 
 ## 기술
 

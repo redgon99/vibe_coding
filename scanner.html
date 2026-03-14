@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR 스캐너 (테스트) - 소방서 QR 출석관리</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    .camera-section {
+      margin-bottom: 1rem;
+    }
+    .camera-section .section-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--gray-800);
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+    .scanner-wrap {
+      max-width: 100%;
+      width: 100%;
+      margin: 0 auto 1rem;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 12px rgba(211, 47, 47, 0.2);
+      border: 2px solid #D32F2F;
+      background: #000;
+      min-height: 280px;
+      position: relative;
+    }
+    .scanner-wrap::before {
+      content: '카메라 연결 중…';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      text-align: center;
+      color: #fff;
+      font-size: 0.9rem;
+      z-index: 0;
+    }
+    .scanner-wrap.video-ready::before {
+      display: none;
+    }
+    #qr-reader { width: 100% !important; min-height: 280px; }
+    #qr-reader__scan_region { background: #000; width: 100% !important; }
+    #qr-reader__scan_region video {
+      width: 100% !important;
+      max-height: 320px;
+      object-fit: cover;
+      display: block;
+    }
+    #qr-reader__dashboard { background: #fff; padding: 0.5rem; }
+    .scan-result { margin-top: 1rem; }
+    .scan-result .url-link { word-break: break-all; font-size: 0.9rem; color: #D32F2F; padding: 0.5rem 0; }
+    .scan-result .btn { margin-top: 0.5rem; margin-right: 0.5rem; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <header class="page-header">
+    <h1>소방서 QR 출석관리</h1>
+    <p class="sub">QR 스캐너 (테스트)</p>
+  </header>
+
+  <main class="container">
+    <section class="card">
+      <h2 class="card-title">QR코드 스캔</h2>
+      <p style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 1rem;">출석용 QR코드를 카메라에 비춰주세요.</p>
+      <div class="camera-section">
+        <span class="section-label">실시간 카메라</span>
+        <div class="scanner-wrap" id="scannerWrap">
+          <div id="qr-reader"></div>
+        </div>
+      </div>
+      <div id="scanResult" class="scan-result card" style="display: none;">
+        <h3 class="card-title">스캔 결과</h3>
+        <p class="url-link" id="resultText"></p>
+        <button type="button" id="btnGo" class="btn btn-primary" style="display: none;">해당 링크로 이동</button>
+        <button type="button" id="btnRescan" class="btn btn-primary">다시 스캔</button>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      var LOG = {
+        prefix: '[QR출석][Scanner]',
+        log: function (msg, data) {
+          if (data !== undefined) console.log(this.prefix, msg, data);
+          else console.log(this.prefix, msg);
+        },
+        warn: function (msg, data) {
+          if (data !== undefined) console.warn(this.prefix, msg, data);
+          else console.warn(this.prefix, msg);
+        }
+      };
+
+      var qrReader = document.getElementById('qr-reader');
+      var scanResult = document.getElementById('scanResult');
+      var resultText = document.getElementById('resultText');
+      var btnGo = document.getElementById('btnGo');
+      var btnRescan = document.getElementById('btnRescan');
+      var toast = document.getElementById('toast');
+      var scanner = null;
+
+      LOG.log('page load', { url: window.location.href });
+
+      function showToast(msg) {
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.classList.add('show');
+        setTimeout(function () { toast.classList.remove('show'); }, 2500);
+      }
+
+      function isUrl(str) {
+        return /^https?:\/\//i.test(str);
+      }
+
+      function onScanSuccess(decodedText) {
+        if (!decodedText) return;
+        LOG.log('scan success', { decodedText: decodedText, isUrl: isUrl(decodedText) });
+        if (scanner && typeof scanner.stop === 'function') {
+          scanner.stop().catch(function () {});
+        }
+        resultText.textContent = decodedText;
+        scanResult.style.display = 'block';
+        if (isUrl(decodedText)) {
+          btnGo.style.display = 'inline-flex';
+          btnGo.onclick = function () { window.location.href = decodedText; };
+        } else {
+          btnGo.style.display = 'none';
+        }
+        showToast('스캔 완료');
+      }
+
+      function startScanner() {
+        if (!window.Html5Qrcode) {
+          LOG.warn('Html5Qrcode not loaded');
+          showToast('QR 스캔 라이브러리를 불러올 수 없습니다.');
+          return;
+        }
+        LOG.log('camera start requested', { facingMode: 'environment' });
+        var wrap = document.getElementById('scannerWrap');
+        if (wrap) wrap.classList.remove('video-ready');
+        scanner = new Html5Qrcode('qr-reader');
+        var config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        scanner.start({ facingMode: 'environment' }, config, onScanSuccess, function () {}).then(function () {
+          if (wrap) wrap.classList.add('video-ready');
+          LOG.log('camera started');
+        }).catch(function (err) {
+          if (wrap) wrap.classList.remove('video-ready');
+          LOG.warn('camera start failed', { message: err && err.message });
+          showToast('카메라 접근 실패: ' + (err.message || '권한을 허용해 주세요.'));
+        });
+      }
+
+      btnRescan.onclick = function () {
+        LOG.log('rescan clicked');
+        scanResult.style.display = 'none';
+        resultText.textContent = '';
+        btnGo.style.display = 'none';
+        function restart() {
+          qrReader.innerHTML = '';
+          scanner = null;
+          startScanner();
+        }
+        if (scanner && typeof scanner.stop === 'function') {
+          scanner.stop().then(restart).catch(restart);
+        } else {
+          restart();
+        }
+      };
+
+      startScanner();
+    })();
+  </script>
+</body>
+</html>
