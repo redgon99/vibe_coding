@@ -3,14 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>QR 스캐너 (테스트) - 소방서 QR 출석관리</title>
+  <title>강원소방 QR스캐너</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    .camera-section {
-      margin-bottom: 1rem;
+    .split-layout {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      gap: 0;
     }
+    .split-pane {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 0.75rem;
+      border: 1px solid var(--gray-200, #eee);
+    }
+    .split-pane-left {
+      border-right: 2px solid #D32F2F;
+    }
+    .split-pane-right {
+      background: var(--gray-100, #f5f5f5);
+    }
+    .pane-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #D32F2F;
+      margin-bottom: 0.5rem;
+    }
+    .preview-wrap {
+      flex: 1;
+      min-height: 300px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fff;
+      border: 2px solid #FFEBEE;
+    }
+    .preview-wrap iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+      border: none;
+      display: block;
+    }
+    .preview-placeholder {
+      width: 100%;
+      height: 100%;
+      min-height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray-600, #757575);
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 1.5rem;
+      box-sizing: border-box;
+    }
+    .preview-placeholder.hidden { display: none; }
+    .scanner-pane .camera-section { margin-bottom: 0.5rem; }
     .camera-section .section-label {
       font-size: 0.85rem;
       font-weight: 600;
@@ -19,15 +72,14 @@
       display: block;
     }
     .scanner-wrap {
-      max-width: 100%;
       width: 100%;
-      margin: 0 auto 1rem;
+      margin: 0 auto 0.5rem;
       border-radius: 12px;
       overflow: hidden;
       box-shadow: 0 2px 12px rgba(211, 47, 47, 0.2);
       border: 2px solid #D32F2F;
       background: #000;
-      min-height: 280px;
+      min-height: 320px;
       position: relative;
     }
     .scanner-wrap::before {
@@ -42,38 +94,66 @@
       font-size: 0.9rem;
       z-index: 0;
     }
-    .scanner-wrap.video-ready::before {
-      display: none;
-    }
-    #qr-reader { width: 100% !important; min-height: 280px; }
+    .scanner-wrap.video-ready::before { display: none; }
+    #qr-reader { width: 100% !important; min-height: 320px; }
     #qr-reader__scan_region { background: #000; width: 100% !important; }
     #qr-reader__scan_region video {
       width: 100% !important;
-      max-height: 320px;
+      max-height: 380px;
       object-fit: cover;
       display: block;
     }
     #qr-reader__dashboard { background: #fff; padding: 0.5rem; }
-    .scan-result { margin-top: 1rem; }
-    .scan-result .url-link { word-break: break-all; font-size: 0.9rem; color: #D32F2F; padding: 0.5rem 0; }
-    .scan-result .btn { margin-top: 0.5rem; margin-right: 0.5rem; }
+    .camera-error {
+      display: none;
+      margin-top: 0.5rem;
+      padding: 1rem;
+      background: #FFEBEE;
+      border: 2px solid #D32F2F;
+      border-radius: 12px;
+      color: #B71C1C;
+      font-size: 0.85rem;
+    }
+    .camera-error.show { display: block; }
+    .camera-error-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 0.35rem; }
+    .camera-error-msg { font-size: 0.85rem; margin-bottom: 0.75rem; line-height: 1.4; }
+    .scan-result { margin-top: 0.5rem; }
+    .scan-result .url-link { word-break: break-all; font-size: 0.85rem; color: #D32F2F; padding: 0.35rem 0; }
+    .scan-result .btn { margin-top: 0.35rem; margin-right: 0.35rem; font-size: 0.85rem; padding: 0.5rem 0.75rem; }
+    @media (max-width: 767px) {
+      .split-layout { flex-direction: column; }
+      .split-pane-left { border-right: none; border-bottom: 2px solid #D32F2F; }
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
   <header class="page-header">
     <h1>소방서 QR 출석관리</h1>
-    <p class="sub">QR 스캐너 (테스트)</p>
+    <p class="sub">QR 스캐너 (테스트) · 좌: 리딩 페이지 / 우: 스캐너</p>
   </header>
 
-  <main class="container">
-    <section class="card">
-      <h2 class="card-title">QR코드 스캔</h2>
-      <p style="font-size: 0.9rem; color: var(--gray-600); margin-bottom: 1rem;">출석용 QR코드를 카메라에 비춰주세요.</p>
+  <main class="split-layout" style="height: calc(100vh - 56px);">
+    <div class="split-pane split-pane-left">
+      <span class="pane-title">리딩 후 접속한 웹페이지</span>
+      <div class="preview-wrap">
+        <div id="previewPlaceholder" class="preview-placeholder">
+          QR코드를 스캔하면 링크된 페이지가 여기에 표시됩니다.
+        </div>
+        <iframe id="previewFrame" style="display: none;" title="스캔된 링크 미리보기"></iframe>
+      </div>
+    </div>
+    <div class="split-pane split-pane-right scanner-pane">
+      <span class="pane-title">QR 스캐너</span>
       <div class="camera-section">
         <span class="section-label">실시간 카메라</span>
         <div class="scanner-wrap" id="scannerWrap">
           <div id="qr-reader"></div>
+        </div>
+        <div id="cameraError" class="camera-error">
+          <p class="camera-error-title">카메라 접근 실패</p>
+          <p class="camera-error-msg" id="cameraErrorMsg"></p>
+          <button type="button" class="btn btn-primary" id="btnRetryCamera">다시 시도</button>
         </div>
       </div>
       <div id="scanResult" class="scan-result card" style="display: none;">
@@ -82,7 +162,7 @@
         <button type="button" id="btnGo" class="btn btn-primary" style="display: none;">해당 링크로 이동</button>
         <button type="button" id="btnRescan" class="btn btn-primary">다시 스캔</button>
       </div>
-    </section>
+    </div>
   </main>
 
   <div class="toast" id="toast"></div>
@@ -107,6 +187,11 @@
       var btnGo = document.getElementById('btnGo');
       var btnRescan = document.getElementById('btnRescan');
       var toast = document.getElementById('toast');
+      var cameraError = document.getElementById('cameraError');
+      var cameraErrorMsg = document.getElementById('cameraErrorMsg');
+      var btnRetryCamera = document.getElementById('btnRetryCamera');
+      var previewPlaceholder = document.getElementById('previewPlaceholder');
+      var previewFrame = document.getElementById('previewFrame');
       var scanner = null;
 
       LOG.log('page load', { url: window.location.href });
@@ -122,6 +207,21 @@
         return /^https?:\/\//i.test(str);
       }
 
+      function loadPreviewUrl(url) {
+        if (!previewFrame || !url) return;
+        previewFrame.src = url;
+        previewFrame.style.display = 'block';
+        if (previewPlaceholder) previewPlaceholder.classList.add('hidden');
+      }
+
+      function clearPreview() {
+        if (previewFrame) {
+          previewFrame.src = 'about:blank';
+          previewFrame.style.display = 'none';
+        }
+        if (previewPlaceholder) previewPlaceholder.classList.remove('hidden');
+      }
+
       function onScanSuccess(decodedText) {
         if (!decodedText) return;
         LOG.log('scan success', { decodedText: decodedText, isUrl: isUrl(decodedText) });
@@ -131,37 +231,62 @@
         resultText.textContent = decodedText;
         scanResult.style.display = 'block';
         if (isUrl(decodedText)) {
+          loadPreviewUrl(decodedText);
           btnGo.style.display = 'inline-flex';
-          btnGo.onclick = function () { window.location.href = decodedText; };
+          btnGo.onclick = function () { window.open(decodedText, '_blank'); };
         } else {
+          clearPreview();
           btnGo.style.display = 'none';
         }
         showToast('스캔 완료');
       }
 
+      function showCameraError(msg) {
+        if (cameraError && cameraErrorMsg) {
+          cameraErrorMsg.textContent = msg || '카메라를 사용할 수 없습니다. 브라우저에서 카메라 권한을 허용했는지 확인해 주세요.';
+          cameraError.classList.add('show');
+        }
+      }
+
+      function hideCameraError() {
+        if (cameraError) cameraError.classList.remove('show');
+      }
+
       function startScanner() {
+        hideCameraError();
         if (!window.Html5Qrcode) {
           LOG.warn('Html5Qrcode not loaded');
-          showToast('QR 스캔 라이브러리를 불러올 수 없습니다.');
+          showCameraError('QR 스캔 라이브러리를 불러올 수 없습니다. 페이지를 새로고침해 주세요.');
           return;
         }
         LOG.log('camera start requested', { facingMode: 'environment' });
         var wrap = document.getElementById('scannerWrap');
         if (wrap) wrap.classList.remove('video-ready');
         scanner = new Html5Qrcode('qr-reader');
-        var config = { fps: 10, qrbox: { width: 250, height: 250 } };
+        var config = { fps: 10, qrbox: { width: 320, height: 320 } };
         scanner.start({ facingMode: 'environment' }, config, onScanSuccess, function () {}).then(function () {
           if (wrap) wrap.classList.add('video-ready');
           LOG.log('camera started');
         }).catch(function (err) {
           if (wrap) wrap.classList.remove('video-ready');
-          LOG.warn('camera start failed', { message: err && err.message });
-          showToast('카메라 접근 실패: ' + (err.message || '권한을 허용해 주세요.'));
+          var errMsg = err && (err.message || err.toString());
+          LOG.warn('camera start failed', { message: errMsg });
+          showCameraError('카메라에 접근할 수 없습니다. ' + (errMsg || '브라우저에서 카메라 권한을 허용해 주세요. HTTPS 또는 localhost에서만 카메라가 동작합니다.'));
         });
+      }
+
+      if (btnRetryCamera) {
+        btnRetryCamera.onclick = function () {
+          hideCameraError();
+          qrReader.innerHTML = '';
+          scanner = null;
+          startScanner();
+        };
       }
 
       btnRescan.onclick = function () {
         LOG.log('rescan clicked');
+        clearPreview();
         scanResult.style.display = 'none';
         resultText.textContent = '';
         btnGo.style.display = 'none';

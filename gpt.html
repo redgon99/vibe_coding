@@ -1,0 +1,1057 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>소방서 QR코드 출석관리 시스템</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --fire-red: #D32F2F;
+      --fire-red-dark: #B71C1C;
+      --fire-red-soft: #FDEAEA;
+      --gray-50: #fafafa;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-400: #9ca3af;
+      --gray-600: #4b5563;
+      --gray-800: #1f2937;
+      --white: #ffffff;
+      --green: #16a34a;
+      --blue: #2563eb;
+      --orange: #ea580c;
+      --shadow: 0 10px 25px rgba(0,0,0,0.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(180deg, #fff7f7 0%, #f8fafc 100%);
+      color: var(--gray-800);
+    }
+
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .topbar {
+      background: linear-gradient(135deg, var(--fire-red-dark), var(--fire-red));
+      color: var(--white);
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+
+    .brand p {
+      margin: 6px 0 0;
+      font-size: 0.9rem;
+      opacity: 0.9;
+    }
+
+    .nav-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: 0.2s ease;
+      font-size: 0.95rem;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+    .btn-primary {
+      background: var(--white);
+      color: var(--fire-red-dark);
+    }
+    .btn-danger {
+      background: var(--fire-red);
+      color: var(--white);
+    }
+    .btn-soft {
+      background: var(--fire-red-soft);
+      color: var(--fire-red-dark);
+    }
+    .btn-outline {
+      background: transparent;
+      color: var(--fire-red);
+      border: 1px solid #ef9a9a;
+    }
+    .btn-block { width: 100%; }
+
+    .page {
+      display: none;
+      padding: 22px;
+    }
+    .page.active { display: block; }
+
+    .admin-layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    .left-column, .right-column {
+      display: grid;
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      border: 1px solid rgba(211, 47, 47, 0.08);
+    }
+
+    .card h2, .card h3 {
+      margin: 0 0 14px;
+      color: var(--fire-red-dark);
+    }
+
+    .muted {
+      color: var(--gray-600);
+      font-size: 0.92rem;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .form-group.full { grid-column: 1 / -1; }
+
+    label {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--gray-800);
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 12px 13px;
+      font-size: 0.96rem;
+      outline: none;
+      background: #fff;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--fire-red);
+      box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.12);
+    }
+
+    .session-list {
+      display: grid;
+      gap: 12px;
+      max-height: 360px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .session-item {
+      border: 1px solid #f3c3c3;
+      background: #fff;
+      border-radius: 14px;
+      padding: 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .session-item.active {
+      border: 2px solid var(--fire-red);
+      background: #fff9f9;
+    }
+
+    .session-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      background: #fee2e2;
+      color: var(--fire-red-dark);
+      width: fit-content;
+    }
+
+    .session-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      color: var(--gray-600);
+      font-size: 0.9rem;
+    }
+
+    .session-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .attendee-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--gray-100);
+      border-radius: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+    }
+
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--gray-100);
+      text-align: left;
+      font-size: 0.94rem;
+    }
+
+    th {
+      background: #fff5f5;
+      color: var(--fire-red-dark);
+      position: sticky;
+      top: 0;
+    }
+
+    .empty {
+      padding: 28px 12px;
+      text-align: center;
+      color: var(--gray-400);
+    }
+
+    .qr-panel {
+      display: grid;
+      gap: 16px;
+      justify-items: center;
+    }
+
+    #qrcode {
+      min-height: 220px;
+      min-width: 220px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      border: 1px dashed #f0b6b6;
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .qr-link {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      word-break: break-all;
+      font-size: 0.9rem;
+    }
+
+    .stats-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .stat-card-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 12px;
+    }
+
+    .mini-stat {
+      background: linear-gradient(180deg, #fff, #fff6f6);
+      border: 1px solid #f5c5c5;
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .mini-stat .label {
+      font-size: 0.86rem;
+      color: var(--gray-600);
+      margin-bottom: 6px;
+    }
+
+    .mini-stat .value {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--fire-red-dark);
+    }
+
+    .chart-wrap {
+      display: grid;
+      gap: 12px;
+    }
+
+    .chart-item {
+      display: grid;
+      grid-template-columns: 110px 1fr 58px;
+      gap: 10px;
+      align-items: center;
+      font-size: 0.92rem;
+    }
+
+    .bar-bg {
+      height: 14px;
+      background: #f3f4f6;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--fire-red), #ff6b6b);
+    }
+
+    .attendance-page-wrap {
+      max-width: 560px;
+      margin: 0 auto;
+      padding-top: 22px;
+    }
+
+    .hero-badge {
+      margin-bottom: 12px;
+      display: inline-flex;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #ffeaea;
+      color: var(--fire-red-dark);
+      font-weight: 700;
+      font-size: 0.82rem;
+    }
+
+    .attendance-success, .attendance-error {
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .attendance-success {
+      background: #ecfdf3;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
+
+    .attendance-error {
+      background: #fff1f2;
+      color: #9f1239;
+      border: 1px solid #fecdd3;
+    }
+
+    .footer-note {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 0.84rem;
+      color: var(--gray-400);
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: #fef2f2;
+      color: var(--fire-red-dark);
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    @media (max-width: 1080px) {
+      .admin-layout { grid-template-columns: 1fr; }
+      .right-column { order: -1; }
+    }
+
+    @media (max-width: 720px) {
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .form-grid, .stat-card-row {
+        grid-template-columns: 1fr;
+      }
+      .page { padding: 14px; }
+      .card { padding: 14px; }
+      .chart-item {
+        grid-template-columns: 90px 1fr 48px;
+        font-size: 0.88rem;
+      }
+      th, td { font-size: 0.88rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand">
+        <h1>소방서 QR코드 출석관리 시스템</h1>
+        <p>교육 세션 생성 · QR 발급 · 실시간 출석현황 · 부서별 통계</p>
+      </div>
+      <div class="nav-actions">
+        <button class="btn btn-primary" id="goAdminBtn">관리자 페이지</button>
+        <button class="btn btn-soft" id="goAttendanceBtn">출석 페이지</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="adminPage" class="page active">
+        <div class="admin-layout">
+          <div class="left-column">
+            <div class="card">
+              <h2>교육 관리 / 참석자 리스트</h2>
+              <p class="muted">왼쪽에서 세션을 생성·선택하고, 해당 세션의 참석자 목록을 실시간으로 확인합니다.</p>
+              <form id="sessionForm" class="form-grid">
+                <div class="form-group">
+                  <label for="sessionDate">교육 날짜</label>
+                  <input type="date" id="sessionDate" required />
+                </div>
+                <div class="form-group">
+                  <label for="sessionTitle">교육명</label>
+                  <input type="text" id="sessionTitle" placeholder="예: 현장지휘관 보수교육" required />
+                </div>
+                <div class="form-group full">
+                  <button type="submit" class="btn btn-danger btn-block">출석 세션 생성</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="attendee-header">
+                <div>
+                  <h3>세션 목록</h3>
+                  <div class="muted">세션 선택 시 오른쪽 QR과 아래 참석 목록이 연동됩니다.</div>
+                </div>
+                <span class="pill" id="sessionCountPill">0개 세션</span>
+              </div>
+              <div id="sessionList" class="session-list"></div>
+            </div>
+
+            <div class="card">
+              <div class="attendee-header">
+                <div>
+                  <h3>참석자 현황</h3>
+                  <div class="muted" id="currentSessionLabel">선택된 세션이 없습니다.</div>
+                </div>
+                <button class="btn btn-outline" id="clearAttendanceBtn">현재 세션 출석 초기화</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>번호</th>
+                      <th>이름</th>
+                      <th>부서</th>
+                      <th>출석시간</th>
+                    </tr>
+                  </thead>
+                  <tbody id="attendeeTableBody">
+                    <tr><td colspan="4" class="empty">세션을 선택하면 출석 목록이 표시됩니다.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="right-column">
+            <div class="card qr-panel">
+              <div style="width:100%; text-align:left;">
+                <h2>QR 생성 영역</h2>
+                <p class="muted">선택된 세션의 고유 QR코드를 생성합니다. 모바일로 스캔하면 출석 페이지로 이동합니다.</p>
+              </div>
+              <div id="qrcode"><span class="muted">세션을 선택하면 QR코드가 생성됩니다.</span></div>
+              <div class="qr-link" id="qrLinkText">출석 링크가 여기에 표시됩니다.</div>
+              <div style="width:100%; display:grid; gap:10px;">
+                <button class="btn btn-danger btn-block" id="copyLinkBtn">출석 링크 복사</button>
+                <button class="btn btn-soft btn-block" id="downloadQrBtn">QR 이미지 다운로드</button>
+              </div>
+            </div>
+
+            <div class="card stats-grid">
+              <div>
+                <h2>부서별 출석 통계</h2>
+                <p class="muted">현재 선택 세션 기준입니다. 부서별 참석 현황을 간단 차트로 표시합니다.</p>
+              </div>
+              <div class="stat-card-row">
+                <div class="mini-stat">
+                  <div class="label">총 참석자</div>
+                  <div class="value" id="totalAttendees">0</div>
+                </div>
+                <div class="mini-stat">
+                  <div class="label">참여 부서 수</div>
+                  <div class="value" id="departmentCount">0</div>
+                </div>
+                <div class="mini-stat">
+                  <div class="label">최근 출석</div>
+                  <div class="value" id="latestCheckin">-</div>
+                </div>
+              </div>
+              <div class="chart-wrap" id="departmentChart">
+                <div class="empty">선택된 세션이 없거나 출석 데이터가 없습니다.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="attendancePage" class="page">
+        <div class="attendance-page-wrap">
+          <div class="card">
+            <span class="hero-badge">모바일 출석 페이지</span>
+            <h2 id="attendanceSessionTitle">출석 세션을 불러오는 중...</h2>
+            <p class="muted" id="attendanceSessionDate">QR코드를 통해 접속하면 교육 정보가 자동으로 표시됩니다.</p>
+            <form id="attendanceForm" class="form-grid" style="margin-top:16px;">
+              <div class="form-group full">
+                <label for="attendeeName">이름</label>
+                <input type="text" id="attendeeName" placeholder="예: 홍길동" required />
+              </div>
+              <div class="form-group full">
+                <label for="attendeeDept">부서</label>
+                <input type="text" id="attendeeDept" placeholder="예: 구조대 / 예방안전과 / 강릉119안전센터" required />
+              </div>
+              <div class="form-group full">
+                <button type="submit" class="btn btn-danger btn-block">출석 확인</button>
+              </div>
+            </form>
+            <div class="attendance-success" id="attendanceSuccess"></div>
+            <div class="attendance-error" id="attendanceError"></div>
+            <div class="footer-note">중복 출석은 같은 세션에서 이름 기준으로 방지됩니다.</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'fire_qr_attendance_data_v1';
+    const BROADCAST_CHANNEL_NAME = 'fire_qr_attendance_channel';
+    const broadcastChannel = 'BroadcastChannel' in window ? new BroadcastChannel(BROADCAST_CHANNEL_NAME) : null;
+
+    const appState = {
+      sessions: [],
+      selectedSessionId: null
+    };
+
+    const $ = (selector) => document.querySelector(selector);
+
+    const adminPage = $('#adminPage');
+    const attendancePage = $('#attendancePage');
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ sessions: appState.sessions }));
+      if (broadcastChannel) {
+        broadcastChannel.postMessage({
+          type: 'attendance-updated',
+          selectedSessionId: appState.selectedSessionId,
+          updatedAt: Date.now()
+        });
+      }
+    }
+
+    function loadState() {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      try {
+        const parsed = JSON.parse(saved);
+        appState.sessions = Array.isArray(parsed.sessions) ? parsed.sessions : [];
+      } catch (error) {
+        console.error('저장 데이터 로드 실패:', error);
+      }
+    }
+
+    function syncStateFromStorage(preserveSelection = true) {
+      const previousSelection = appState.selectedSessionId;
+      loadState();
+
+      if (preserveSelection && previousSelection) {
+        const stillExists = appState.sessions.some(session => session.id === previousSelection);
+        appState.selectedSessionId = stillExists ? previousSelection : (appState.sessions[0]?.id || null);
+      } else if (!appState.selectedSessionId && appState.sessions.length > 0) {
+        appState.selectedSessionId = appState.sessions[0].id;
+      }
+
+      renderAll();
+      if (new URLSearchParams(window.location.search).get('page') === 'attendance') {
+        initAttendancePage();
+      }
+    }
+
+    function generateId() {
+      return 'session-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      if (Number.isNaN(date.getTime())) return dateStr;
+      return `${date.getFullYear()}년 ${String(date.getMonth() + 1).padStart(2, '0')}월 ${String(date.getDate()).padStart(2, '0')}일`;
+    }
+
+    function formatDateTime(dateStr) {
+      const date = new Date(dateStr);
+      if (Number.isNaN(date.getTime())) return '-';
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+    }
+
+    function getSelectedSession() {
+      return appState.sessions.find(session => session.id === appState.selectedSessionId) || null;
+    }
+
+    function getAttendanceUrl(sessionId) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', 'attendance');
+      url.searchParams.set('sessionId', sessionId);
+      return url.toString();
+    }
+
+    function showPage(pageName) {
+      adminPage.classList.toggle('active', pageName === 'admin');
+      attendancePage.classList.toggle('active', pageName === 'attendance');
+    }
+
+    function renderSessions() {
+      const listEl = $('#sessionList');
+      $('#sessionCountPill').textContent = `${appState.sessions.length}개 세션`;
+
+      if (appState.sessions.length === 0) {
+        listEl.innerHTML = '<div class="empty">생성된 교육 세션이 없습니다.</div>';
+        return;
+      }
+
+      listEl.innerHTML = appState.sessions
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(session => {
+          const activeClass = session.id === appState.selectedSessionId ? 'active' : '';
+          return `
+            <div class="session-item ${activeClass}">
+              <div class="session-title-row">
+                <strong>${escapeHtml(session.title)}</strong>
+                <span class="badge">${session.attendees.length}명 출석</span>
+              </div>
+              <div class="session-meta">
+                <span>📅 ${formatDate(session.date)}</span>
+                <span>🆔 ${session.id.slice(-8)}</span>
+              </div>
+              <div class="session-actions">
+                <button class="btn btn-soft" onclick="selectSession('${session.id}')">선택</button>
+                <button class="btn btn-outline" onclick="openAttendanceLink('${session.id}')">출석 페이지 열기</button>
+                <button class="btn btn-outline" onclick="deleteSession('${session.id}')">삭제</button>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function renderAttendees() {
+      const session = getSelectedSession();
+      const tbody = $('#attendeeTableBody');
+      const label = $('#currentSessionLabel');
+
+      if (!session) {
+        label.textContent = '선택된 세션이 없습니다.';
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">세션을 선택하면 출석 목록이 표시됩니다.</td></tr>';
+        return;
+      }
+
+      label.textContent = `${session.title} · ${formatDate(session.date)}`;
+
+      if (session.attendees.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" class="empty">아직 출석한 인원이 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = session.attendees
+        .slice()
+        .sort((a, b) => new Date(a.checkedAt) - new Date(b.checkedAt))
+        .map((attendee, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${escapeHtml(attendee.name)}</td>
+            <td>${escapeHtml(attendee.department)}</td>
+            <td>${formatDateTime(attendee.checkedAt)}</td>
+          </tr>
+        `)
+        .join('');
+    }
+
+    function renderStats() {
+      const session = getSelectedSession();
+      const totalEl = $('#totalAttendees');
+      const deptCountEl = $('#departmentCount');
+      const latestEl = $('#latestCheckin');
+      const chartEl = $('#departmentChart');
+
+      if (!session || session.attendees.length === 0) {
+        totalEl.textContent = '0';
+        deptCountEl.textContent = '0';
+        latestEl.textContent = '-';
+        chartEl.innerHTML = '<div class="empty">선택된 세션이 없거나 출석 데이터가 없습니다.</div>';
+        return;
+      }
+
+      const deptMap = {};
+      session.attendees.forEach(({ department }) => {
+        deptMap[department] = (deptMap[department] || 0) + 1;
+      });
+
+      const entries = Object.entries(deptMap).sort((a, b) => b[1] - a[1]);
+      const maxValue = entries[0][1] || 1;
+      const latest = session.attendees.slice().sort((a, b) => new Date(b.checkedAt) - new Date(a.checkedAt))[0];
+
+      totalEl.textContent = String(session.attendees.length);
+      deptCountEl.textContent = String(entries.length);
+      latestEl.textContent = latest ? latest.name : '-';
+
+      chartEl.innerHTML = entries.map(([dept, count]) => {
+        const width = Math.max(8, (count / maxValue) * 100);
+        return `
+          <div class="chart-item">
+            <strong>${escapeHtml(dept)}</strong>
+            <div class="bar-bg"><div class="bar-fill" style="width:${width}%"></div></div>
+            <span>${count}명</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderQRCode() {
+      const session = getSelectedSession();
+      const qrBox = $('#qrcode');
+      const linkText = $('#qrLinkText');
+      qrBox.innerHTML = '';
+
+      if (!session) {
+        qrBox.innerHTML = '<span class="muted">세션을 선택하면 QR코드가 생성됩니다.</span>';
+        linkText.textContent = '출석 링크가 여기에 표시됩니다.';
+        return;
+      }
+
+      const attendanceUrl = getAttendanceUrl(session.id);
+      new QRCode(qrBox, {
+        text: attendanceUrl,
+        width: 220,
+        height: 220,
+        colorDark: '#B71C1C',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      linkText.textContent = attendanceUrl;
+    }
+
+    function renderAll() {
+      renderSessions();
+      renderAttendees();
+      renderStats();
+      renderQRCode();
+    }
+
+    function createSession(event) {
+      event.preventDefault();
+      const date = $('#sessionDate').value;
+      const title = $('#sessionTitle').value.trim();
+
+      if (!date || !title) {
+        alert('교육 날짜와 교육명을 입력해주세요.');
+        return;
+      }
+
+      const session = {
+        id: generateId(),
+        date,
+        title,
+        createdAt: new Date().toISOString(),
+        attendees: []
+      };
+
+      appState.sessions.push(session);
+      appState.selectedSessionId = session.id;
+      saveState();
+      renderAll();
+      event.target.reset();
+      $('#sessionDate').value = new Date().toISOString().slice(0, 10);
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function selectSession(sessionId) {
+      appState.selectedSessionId = sessionId;
+      saveState();
+      renderAll();
+    }
+
+    function deleteSession(sessionId) {
+      const target = appState.sessions.find(session => session.id === sessionId);
+      if (!target) return;
+      const ok = confirm(`'${target.title}' 세션을 삭제하시겠습니까?`);
+      if (!ok) return;
+      appState.sessions = appState.sessions.filter(session => session.id !== sessionId);
+      if (appState.selectedSessionId === sessionId) {
+        appState.selectedSessionId = appState.sessions[0]?.id || null;
+      }
+      saveState();
+      renderAll();
+    }
+
+    function openAttendanceLink(sessionId) {
+      window.open(getAttendanceUrl(sessionId), '_blank');
+    }
+
+    function handleAttendanceSubmit(event) {
+      event.preventDefault();
+      const sessionId = new URLSearchParams(window.location.search).get('sessionId');
+      const name = $('#attendeeName').value.trim();
+      const department = $('#attendeeDept').value.trim();
+      const successEl = $('#attendanceSuccess');
+      const errorEl = $('#attendanceError');
+
+      successEl.style.display = 'none';
+      errorEl.style.display = 'none';
+
+      if (!sessionId) {
+        errorEl.textContent = '유효한 세션 정보가 없습니다. 관리자에게 QR코드를 다시 요청해주세요.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const session = appState.sessions.find(item => item.id === sessionId);
+      if (!session) {
+        errorEl.textContent = '해당 교육 세션을 찾을 수 없습니다.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      if (!name || !department) {
+        errorEl.textContent = '이름과 부서를 모두 입력해주세요.';
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      const duplicate = session.attendees.find(att => att.name === name);
+      if (duplicate) {
+        errorEl.textContent = `${name} 님은 이미 출석 처리되었습니다.`;
+        errorEl.style.display = 'block';
+        return;
+      }
+
+      session.attendees.push({
+        name,
+        department,
+        checkedAt: new Date().toISOString()
+      });
+
+      saveState();
+      renderAll();
+      successEl.textContent = `${name} 님 출석이 완료되었습니다. (${session.title})`;
+      successEl.style.display = 'block';
+      event.target.reset();
+    }
+
+    function initAttendancePage() {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('sessionId');
+      const session = appState.sessions.find(item => item.id === sessionId);
+      const titleEl = $('#attendanceSessionTitle');
+      const dateEl = $('#attendanceSessionDate');
+
+      if (!session) {
+        titleEl.textContent = '유효하지 않은 출석 세션입니다.';
+        dateEl.textContent = '관리자에게 새로운 QR코드를 요청해주세요.';
+        return;
+      }
+
+      titleEl.textContent = session.title;
+      dateEl.textContent = `${formatDate(session.date)} 교육 출석`;    
+    }
+
+    function initPageFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const page = params.get('page');
+      if (page === 'attendance') {
+        showPage('attendance');
+        initAttendancePage();
+      } else {
+        showPage('admin');
+      }
+    }
+
+    function copyAttendanceLink() {
+      const session = getSelectedSession();
+      if (!session) {
+        alert('먼저 세션을 선택해주세요.');
+        return;
+      }
+      const link = getAttendanceUrl(session.id);
+      navigator.clipboard.writeText(link)
+        .then(() => alert('출석 링크가 복사되었습니다.'))
+        .catch(() => alert('복사에 실패했습니다. 직접 링크를 복사해주세요.'));
+    }
+
+    function downloadQRCode() {
+      const session = getSelectedSession();
+      if (!session) {
+        alert('먼저 세션을 선택해주세요.');
+        return;
+      }
+      const img = $('#qrcode img') || $('#qrcode canvas');
+      if (!img) {
+        alert('QR코드가 아직 생성되지 않았습니다.');
+        return;
+      }
+
+      let dataUrl = '';
+      if (img.tagName.toLowerCase() === 'img') {
+        dataUrl = img.src;
+      } else {
+        dataUrl = img.toDataURL('image/png');
+      }
+
+      const a = document.createElement('a');
+      a.href = dataUrl;
+      a.download = `${session.title}_QR.png`;
+      a.click();
+    }
+
+    function clearCurrentAttendance() {
+      const session = getSelectedSession();
+      if (!session) {
+        alert('선택된 세션이 없습니다.');
+        return;
+      }
+      const ok = confirm(`'${session.title}' 세션의 출석 데이터를 모두 삭제하시겠습니까?`);
+      if (!ok) return;
+      session.attendees = [];
+      saveState();
+      renderAll();
+    }
+
+    function bindRealtimeSync() {
+      window.addEventListener('storage', (event) => {
+        if (event.key === STORAGE_KEY) {
+          syncStateFromStorage(true);
+        }
+      });
+
+      if (broadcastChannel) {
+        broadcastChannel.addEventListener('message', (event) => {
+          if (event.data?.type === 'attendance-updated') {
+            syncStateFromStorage(true);
+          }
+        });
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) {
+          syncStateFromStorage(true);
+        }
+      });
+
+      setInterval(() => {
+        syncStateFromStorage(true);
+      }, 3000);
+    }
+
+    function bindEvents() {
+      $('#sessionForm').addEventListener('submit', createSession);
+      $('#attendanceForm').addEventListener('submit', handleAttendanceSubmit);
+      $('#goAdminBtn').addEventListener('click', () => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('page');
+        url.searchParams.delete('sessionId');
+        window.location.href = url.toString();
+      });
+      $('#goAttendanceBtn').addEventListener('click', () => {
+        const session = getSelectedSession();
+        if (!session) {
+          alert('출석 페이지 테스트를 위해 먼저 세션을 하나 선택해주세요.');
+          return;
+        }
+        window.location.href = getAttendanceUrl(session.id);
+      });
+      $('#copyLinkBtn').addEventListener('click', copyAttendanceLink);
+      $('#downloadQrBtn').addEventListener('click', downloadQRCode);
+      $('#clearAttendanceBtn').addEventListener('click', clearCurrentAttendance);
+    }
+
+    window.selectSession = selectSession;
+    window.deleteSession = deleteSession;
+    window.openAttendanceLink = openAttendanceLink;
+
+    function seedInitialDate() {
+      $('#sessionDate').value = new Date().toISOString().slice(0, 10);
+    }
+
+    function ensureDefaultSelection() {
+      if (!appState.selectedSessionId && appState.sessions.length > 0) {
+        appState.selectedSessionId = appState.sessions[0].id;
+      }
+    }
+
+    function init() {
+      loadState();
+      seedInitialDate();
+      ensureDefaultSelection();
+      bindEvents();
+      bindRealtimeSync();
+      initPageFromQuery();
+      renderAll();
+    }
+
+    init();
+  </script>
+</body>
+</html>

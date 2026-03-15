@@ -1,0 +1,17 @@
+.modal-container { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-container.is-open { display: flex; }
+.modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+.modal-dialog {
+  position: relative; z-index: 1;
+  background: #fff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+  max-width: 90vw; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+}
+.modal-header { padding: 16px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+.modal-header h2 { margin: 0; font-size: 1.1rem; }
+.modal-close { background: none; border: none; font-size: 1.5rem; line-height: 1; padding: 0 4px; color: #666; }
+.modal-close:hover { color: #000; }
+.modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+.modal-footer { padding: 12px 20px; border-top: 1px solid #eee; flex-shrink: 0; }
+
+/* focus trap: keep focus inside modal when open */
+.modal-dialog:focus { outline: none; }

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>정보 흐름도 - 소방서 QR 출석관리</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; margin: 0; padding: 1.5rem; background: #f5f5f5; color: #212121; }
+    h1 { color: #D32F2F; font-size: 1.5rem; margin-bottom: 0.5rem; }
+    .sub { color: #757575; font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .diagram-wrap { background: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .diagram-wrap h2 { font-size: 1rem; color: #424242; margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid #FFEBEE; }
+    .mermaid { text-align: center; }
+    .mermaid svg { max-width: 100%; height: auto; }
+  </style>
+</head>
+<body>
+  <h1>소방서 QR 출석관리 시스템</h1>
+  <p class="sub">정보 흐름도 (Mermaid)</p>
+
+  <div class="diagram-wrap">
+    <h2>1. 전체 정보 흐름</h2>
+    <div class="mermaid">
+flowchart TB
+  subgraph Admin["관리자 (admin.html)"]
+    A1[날짜·교육명 입력]
+    A2[세션 생성]
+    A3[QR코드 생성]
+    A4[출석 현황 조회]
+    A5[부서별 통계 차트]
+    A1 --> A2 --> A3
+    A4 --> A5
+  end
+
+  subgraph Storage["저장소 (localStorage)"]
+    S1[세션 목록]
+    S2[출석 기록]
+  end
+
+  subgraph User["교육생 / 직원"]
+    U1[QR 스캔]
+    U2[출석 페이지 이동]
+    U3[이름·부서 입력]
+    U4[출석 확인]
+    U1 --> U2 --> U3 --> U4
+  end
+
+  A2 -->|saveSessions| S1
+  S1 -->|getSessions| A3
+  A3 -.->|URL 포함 QR| U1
+  U4 -->|addAttendance| S2
+  S2 -->|getAttendancesBySessionId| A4
+  A4 -->|getDepartmentStats| A5
+    </div>
+  </div>
+
+  <div class="diagram-wrap">
+    <h2>2. 관리자 페이지 흐름</h2>
+    <div class="mermaid">
+flowchart LR
+  subgraph Create["교육생성"]
+    C1[날짜 입력]
+    C2[교육명 입력]
+    C3[세션 생성 버튼]
+    C4[createSession]
+    C5[고유 세션 ID 생성]
+    C6[QR코드 렌더링]
+    C1 --> C3
+    C2 --> C3
+    C3 --> C4 --> C5 --> C6
+  end
+
+  subgraph Manage["교육관리"]
+    M1[세션 선택]
+    M2[출석 목록 조회]
+    M3[부서별 차트]
+    M1 --> M2 --> M3
+  end
+
+  C6 -.->|2초마다 갱신| M2
+    </div>
+  </div>
+
+  <div class="diagram-wrap">
+    <h2>3. 출석 처리 흐름</h2>
+    <div class="mermaid">
+flowchart TB
+  Start([QR코드 스캔]) --> URL[attend.html?session=세션ID]
+  URL --> Load[출석 페이지 로드]
+  Load --> Check{세션 유효?}
+  Check -->|아니오| Error[유효하지 않은 링크 안내]
+  Check -->|예| Form[이름·부서 입력 폼 표시]
+  Form --> Submit[출석 확인 클릭]
+  Submit --> Validate{입력 검증}
+  Validate -->|실패| Form
+  Validate -->|성공| Add[addAttendance 호출]
+  Add --> Save[localStorage 출석 기록 저장]
+  Save --> Done[출석 완료 화면]
+    </div>
+  </div>
+
+  <div class="diagram-wrap">
+    <h2>4. 데이터 저장 구조</h2>
+    <div class="mermaid">
+flowchart TB
+  subgraph LS["localStorage"]
+    key1["qr_attendance_sessions"]
+    key2["qr_attendance_records"]
+  end
+
+  subgraph Sessions["세션 목록"]
+    S1["id, educationName, date, createdAt"]
+  end
+
+  subgraph Records["출석 기록"]
+    R1["id, sessionId, name, department, timestamp"]
+  end
+
+  key1 --> Sessions
+  key2 --> Records
+
+  Sessions -.->|sessionId 참조| Records
+    </div>
+  </div>
+
+  <div class="diagram-wrap">
+    <h2>5. 페이지별 진입 흐름</h2>
+    <div class="mermaid">
+flowchart LR
+  Index[index.html] -->|리다이렉트| Admin[admin.html]
+  Admin --> Create[교육생성]
+  Admin --> Manage[교육관리]
+  QR[QR코드] -->|스캔| Attend[attend.html]
+  Scanner[scanner.html<br/>테스트용] -->|카메라 스캔| Attend
+  Attend -->|출석 완료| Done[완료 화면]
+    </div>
+  </div>
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'base',
+      themeVariables: {
+        primaryColor: '#FFEBEE',
+        primaryTextColor: '#B71C1C',
+        primaryBorderColor: '#D32F2F',
+        lineColor: '#D32F2F',
+        secondaryColor: '#fff',
+        tertiaryColor: '#f5f5f5'
+      },
+      flowchart: {
+        useMaxWidth: true,
+        htmlLabels: true,
+        curve: 'basis'
+      }
+    });
+  </script>
+</body>
+</html>
