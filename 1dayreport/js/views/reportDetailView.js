@@ -63,6 +63,10 @@ export function reportDetailView(id) {
       <div class="form-group"><label>119 출동건수</label><input type="number" id="f-total_dispatch_count" value="${report.total_dispatch_count ?? ''}" /></div>
     </div>
     <div class="report-form-section">
+      <h3>일일소방활동</h3>
+      <div id="daily-stats-table-wrap" class="daily-stats-table-wrap"></div>
+    </div>
+    <div class="report-form-section">
       <h3>주요 소방활동</h3>
       <div id="incident-list-editor" class="incident-list-editor"></div>
     </div>
@@ -93,6 +97,9 @@ export function reportDetailView(id) {
     incidentEditor.appendChild(row);
   });
 
+  const dailyStatsWrap = formSection.querySelector('#daily-stats-table-wrap');
+  dailyStatsWrap.appendChild(buildDailyStatsTable(dailyStats));
+
   formSection.querySelector('#btn-history').addEventListener('click', () => {
     const history = storage.getEditHistory(id);
     const body = document.createElement('div');
@@ -105,9 +112,10 @@ export function reportDetailView(id) {
   formSection.querySelector('#btn-logs').addEventListener('click', () => {
     const logs = storage.getExtractionLogs(id);
     const body = document.createElement('div');
+    const contentStr = (c) => (c == null ? '' : typeof c === 'string' ? c : JSON.stringify(c));
     body.innerHTML = logs.length === 0
       ? '<p class="text-muted">추출 로그가 없습니다.</p>'
-      : '<pre style="white-space:pre-wrap;font-size:12px;max-height:60vh;overflow:auto">' + logs.map(l => `[${l.log_type}] ${l.content}\n`).join('') + '</pre>';
+      : '<pre style="white-space:pre-wrap;font-size:12px;max-height:60vh;overflow:auto">' + logs.map(l => `[${l.log_type || 'log'}] ${contentStr(l.content)}\n`).join('') + '</pre>';
     openModal({ title: '추출 로그', body });
   });
 
@@ -138,6 +146,67 @@ export function reportDetailView(id) {
   return wrap;
 }
 
+function buildDailyStatsTable(dailyStats) {
+  const wrap = document.createElement('div');
+  wrap.className = 'daily-stats-table-container';
+
+  const byPeriod = { daily: {}, cumulative: {} };
+  (dailyStats || []).forEach(d => {
+    const pt = d.period_type === 'cumulative' ? 'cumulative' : 'daily';
+    byPeriod[pt][d.category] = d;
+  });
+
+  const num = (v) => (v == null || v === '' ? '-' : Number(v));
+  const fmt = (v) => (v === '-' || v == null ? '-' : String(v).replace(/\B(?=(\d{3})+(?!\d))/g, ','));
+
+  let html = `
+    <table class="report-table daily-stats-table">
+      <thead>
+        <tr>
+          <th rowspan="2">구분</th>
+          <th colspan="6">화재</th>
+          <th colspan="2">구조</th>
+          <th colspan="2">구급</th>
+          <th>기타</th>
+        </tr>
+        <tr>
+          <th>계</th><th>출동</th><th>오인</th><th>사망</th><th>부상</th><th>피해(천원)</th>
+          <th>출동</th><th>인원</th>
+          <th>출동</th><th>인원</th>
+          <th>출동</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  ['daily', 'cumulative'].forEach(pt => {
+    const label = pt === 'daily' ? '일계' : '누계';
+    const f = byPeriod[pt].fire;
+    const r = byPeriod[pt].rescue;
+    const e = byPeriod[pt].emergency;
+    const o = byPeriod[pt].other;
+    const fireTotalVal = f ? ((Number(f.dispatch_count) || 0) + (Number(f.false_alarm_count) || 0)) : '-';
+    html += `<tr>
+      <td><strong>${label}</strong></td>
+      <td>${fmt(fireTotalVal === '-' ? fireTotalVal : fireTotalVal)}</td>
+      <td>${f ? fmt(f.dispatch_count) : '-'}</td>
+      <td>${f ? fmt(f.false_alarm_count) : '-'}</td>
+      <td>${f ? fmt(f.death_count) : '-'}</td>
+      <td>${f ? fmt(f.injury_count) : '-'}</td>
+      <td>${f ? fmt(f.damage_amount_1000) : '-'}</td>
+      <td>${r ? fmt(r.dispatch_count) : '-'}</td>
+      <td>${r ? fmt(r.person_count) : '-'}</td>
+      <td>${e ? fmt(e.dispatch_count) : '-'}</td>
+      <td>${e ? fmt(e.person_count) : '-'}</td>
+      <td>${o ? fmt(o.dispatch_count) : '-'}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  return wrap;
+}
+
 function escapeAttr(s) {
   if (s == null) return '';
   const div = document.createElement('div');
@@ -146,6 +215,7 @@ function escapeAttr(s) {
 }
 
 function escapeHtml(s) {
+  if (s == null) return '';
   const div = document.createElement('div');
   div.textContent = s;
   return div.innerHTML;
@@ -174,7 +244,7 @@ function collectIncidents(incidentEditor, existingIncidents = []) {
 }
 
 function saveReport(id, formSection, incidentEditor, report, existingIncidents, storage) {
-  const get = (id) => formSection.querySelector('#' + id)?.value ?? '';
+  const get = (fieldId) => formSection.querySelector('#' + fieldId)?.value ?? '';
   const newReport = {
     ...report,
     title: get('f-title'),
@@ -188,9 +258,10 @@ function saveReport(id, formSection, incidentEditor, report, existingIncidents, 
     total_dispatch_count: parseInt(get('f-total_dispatch_count'), 10) || 0,
   };
   const incidents = collectIncidents(incidentEditor, existingIncidents);
+  const currentSaved = storage.getReport(id) || {};
   ['title', 'org_name', 'contact', 'period_start', 'period_end', 'weather_summary', 'weather_today', 'weather_detail', 'total_dispatch_count'].forEach(f => {
-    if (String(report[f]) !== String(newReport[f])) {
-      storage.saveEditHistory(id, f, report[f], newReport[f]);
+    if (String(currentSaved[f]) !== String(newReport[f])) {
+      storage.saveEditHistory(id, f, currentSaved[f], newReport[f]);
     }
   });
   storage.saveReport(newReport);

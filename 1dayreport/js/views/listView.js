@@ -42,7 +42,7 @@ export function listView() {
             <td>${formatDateTime(r.created_at)}</td>
             <td>${escapeHtml(r.org_name || '-')}</td>
             <td>${formatPeriod(r.period_start, r.period_end)}</td>
-            <td><span class="badge badge-${r.status}">${statusLabel(r.status)}</span></td>
+            <td><span class="badge badge-${r.status || 'draft'}">${statusLabel(r.status)}</span></td>
             <td class="col-actions">
               <button type="button" class="btn btn-sm btn-secondary" data-view="${r.id}">검수</button>
             </td>
@@ -70,7 +70,7 @@ function formatPeriod(start, end) {
 }
 
 function statusLabel(s) {
-  return { draft: '미검수', in_review: '검수중', confirmed: '확정' }[s] || s;
+  return { draft: '미검수', in_review: '검수중', confirmed: '확정' }[s] || (s || '미검수');
 }
 
 function escapeHtml(s) {

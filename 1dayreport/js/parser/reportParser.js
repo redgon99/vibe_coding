@@ -43,11 +43,15 @@ export function parseReportText(text) {
   const titleMatch = text.match(/소방활동\s*일일\s*상황보고|119\s*소방활동\s*일일/);
   if (titleMatch) result.report.title = '소방활동 일일 상황보고';
 
-  const weatherBlock = extractBlock(lines, '기상상황', ['일일', '소방', '119']);
-  if (weatherBlock) {
-    result.report.weather_summary = weatherBlock.find(l => /종합|예보|풍랑|너울/.test(l)) || '';
-    result.report.weather_today = weatherBlock.find(l => /오늘|맑음|흐림|강원/.test(l)) || '';
-    result.report.weather_detail = weatherBlock.find(l => /맑음|체감|습도|북풍|°/.test(l)) || '';
+  let weatherBlock = extractBlock(lines, '기상상황', ['일일 소방', '119출동', '119 출동']);
+  if (!weatherBlock.length) weatherBlock = extractBlock(lines, '기상', ['일일 소방', '119출동', '119 출동']);
+  if (weatherBlock.length) {
+    result.report.weather_summary = weatherBlock.find(l => /종합|예보|풍랑|너울|내일|모레/.test(l)) || '';
+    result.report.weather_today = weatherBlock.find(l => /오늘|맑음|흐림|강원|대체로/.test(l)) || '';
+    result.report.weather_detail = weatherBlock.find(l => /맑음|체감|습도|북풍|°|[\d-]+\.?\d*\s*\/\s*[\d]+/.test(l)) || '';
+  }
+  if (!result.report.weather_summary && !result.report.weather_today && !result.report.weather_detail) {
+    extractWeatherFromFullText(text, result.report);
   }
 
   const hasTable = /일계|누계/.test(text) && /화재|구조|구급/.test(text);
@@ -121,6 +125,22 @@ export function parseReportText(text) {
   }
 
   return result;
+}
+
+function extractWeatherFromFullText(text, report) {
+  const summaryMatch = text.match(/(내일[^.\n]*모레[^.\n]*(?:풍랑|너울)[^.\n]*)|(종합[^.\n]{10,80})/);
+  if (summaryMatch) report.weather_summary = (summaryMatch[1] || summaryMatch[2] || '').trim();
+
+  const todayMatch = text.match(/(강원내륙[^.\n]{5,60})|(오늘[^.\n]{5,60}(?:맑음|흐림))/);
+  if (todayMatch) report.weather_today = (todayMatch[1] || todayMatch[2] || '').trim();
+
+  const detailMatch = text.match(/(맑음[^.\n]{0,40}(?:체감|습도|북풍)[^.\n]*)|(체감\s*[-]?\d+[^.\n]{0,30}(?:습도|북풍)[^.\n]*)|(습도\s*\d+%[^.\n]{0,30})/);
+  if (detailMatch) report.weather_detail = (detailMatch[1] || detailMatch[2] || detailMatch[3] || '').trim();
+
+  if (!report.weather_detail && /습도\s*\d+%|북풍\s*[\d.]+/.test(text)) {
+    const m = text.match(/맑음[^.\n]{0,80}/);
+    if (m) report.weather_detail = m[0].trim();
+  }
 }
 
 function extractBlock(lines, startKeyword, endKeywords) {

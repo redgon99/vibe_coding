@@ -28,8 +28,10 @@ export function dashboardView() {
   `;
 
   function renderKpis() {
-    const start = document.getElementById('dash-start').value;
-    const end = document.getElementById('dash-end').value;
+    const startEl = wrap.querySelector('#dash-start');
+    const endEl = wrap.querySelector('#dash-end');
+    const start = startEl ? startEl.value : '';
+    const end = endEl ? endEl.value : '';
     const periodStart = start ? new Date(start).toISOString() : null;
     const periodEnd = end ? new Date(end + 'T23:59:59').toISOString() : null;
 
@@ -61,7 +63,8 @@ export function dashboardView() {
     const allReports = storage.listReports();
     const unconfirmed = allReports.filter(r => r.status !== 'confirmed').length;
 
-    const grid = document.getElementById('kpi-grid');
+    const grid = wrap.querySelector('#kpi-grid');
+    if (!grid) return;
     grid.innerHTML = `
       <div class="kpi-card"><div class="kpi-value" id="kpi-total">${totalDispatch}</div><div class="kpi-label">총 출동 건수</div></div>
       <div class="kpi-card"><div class="kpi-value">${fireCount}</div><div class="kpi-label">화재</div></div>
@@ -75,7 +78,8 @@ export function dashboardView() {
     `;
 
     const totalType = fireCount + rescueCount + emergencyCount + otherCount || 1;
-    const canvas = document.getElementById('chart-canvas');
+    const canvas = wrap.querySelector('#chart-canvas');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const w = canvas.width;
     const h = canvas.height;

@@ -62,3 +62,12 @@
 .incident-list-editor { margin-top: 8px; }
 .incident-list-editor .incident-row { padding: 8px 0; border-bottom: 1px solid #eee; display: grid; gap: 8px; }
 .incident-list-editor .incident-row:last-child { border-bottom: none; }
+
+/* 일일소방활동 표 */
+.daily-stats-table-container { overflow-x: auto; margin-top: 8px; }
+.daily-stats-table { font-size: 13px; }
+.daily-stats-table th { white-space: nowrap; }
+.daily-stats-table td { text-align: center; }
+.daily-stats-table td:first-child { text-align: left; font-weight: 600; }
+.daily-stats-table thead th { background: #f0f0f0; }
+.daily-stats-table tbody tr:nth-child(even) { background: #fafafa; }
