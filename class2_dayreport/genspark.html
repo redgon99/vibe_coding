@@ -1,0 +1,1876 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚒 춘천소방서 일일 상황보고 대시보드</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --primary: #c0392b;
+    --primary-dark: #922b21;
+    --primary-light: #f9ebea;
+    --secondary: #2c3e50;
+    --accent: #e67e22;
+    --success: #27ae60;
+    --info: #2980b9;
+    --warning: #f39c12;
+    --bg: #f0f2f5;
+    --card-bg: #ffffff;
+    --border: #e0e0e0;
+    --text: #2c3e50;
+    --text-light: #7f8c8d;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-hover: 0 6px 24px rgba(0,0,0,0.14);
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Malgun Gothic', '맑은 고딕', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 60%, var(--accent) 100%);
+    color: white;
+    padding: 0;
+    box-shadow: 0 4px 20px rgba(192,57,43,0.4);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; gap: 16px;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .header-logo { font-size: 2rem; }
+  .header-title h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.5px; }
+  .header-title p { font-size: 0.78rem; opacity: 0.85; margin-top: 2px; }
+  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: 8px; border: none;
+    cursor: pointer; font-size: 0.82rem; font-weight: 600;
+    transition: all 0.2s; white-space: nowrap;
+  }
+  .btn-white {
+    background: rgba(255,255,255,0.18); color: white;
+    border: 1.5px solid rgba(255,255,255,0.4);
+    backdrop-filter: blur(4px);
+  }
+  .btn-white:hover { background: rgba(255,255,255,0.3); transform: translateY(-1px); }
+  .btn-accent { background: var(--accent); color: white; }
+  .btn-accent:hover { background: #d35400; transform: translateY(-1px); box-shadow: var(--shadow); }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  .btn-success { background: var(--success); color: white; }
+  .btn-success:hover { background: #1e8449; }
+  .btn-info { background: var(--info); color: white; }
+  .btn-info:hover { background: #1a5276; }
+  .btn-danger { background: var(--primary); color: white; }
+  .btn-danger:hover { background: var(--primary-dark); }
+  .btn-secondary { background: #7f8c8d; color: white; }
+  .btn-secondary:hover { background: #626567; }
+  .btn-sm { padding: 6px 12px; font-size: 0.78rem; }
+
+  .date-badge {
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 0.8rem; color: white; white-space: nowrap;
+  }
+
+  /* ─── WEATHER BAR ─── */
+  .weather-bar {
+    background: linear-gradient(90deg, #1a252f, #2c3e50);
+    color: #ecf0f1; padding: 8px 28px;
+    display: flex; align-items: center; gap: 24px;
+    font-size: 0.78rem; flex-wrap: wrap;
+    border-bottom: 2px solid var(--primary);
+  }
+  .weather-item { display: flex; align-items: center; gap: 6px; }
+  .weather-item span.label { color: #f39c12; font-weight: 600; }
+
+  /* ─── MAIN LAYOUT ─── */
+  .main { padding: 20px 24px; max-width: 1600px; margin: 0 auto; }
+
+  /* ─── SUMMARY CARDS ─── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px; margin-bottom: 20px;
+  }
+  .summary-card {
+    background: var(--card-bg); border-radius: var(--radius);
+    padding: 18px 16px; box-shadow: var(--shadow);
+    border-left: 4px solid transparent;
+    transition: all 0.2s; position: relative; overflow: hidden;
+  }
+  .summary-card:hover { box-shadow: var(--shadow-hover); transform: translateY(-2px); }
+  .summary-card::before {
+    content: ''; position: absolute; top: 0; right: 0;
+    width: 60px; height: 60px; border-radius: 50%;
+    opacity: 0.08; transform: translate(20px, -20px);
+  }
+  .summary-card.total { border-color: var(--primary); }
+  .summary-card.total::before { background: var(--primary); }
+  .summary-card.fire { border-color: #e74c3c; }
+  .summary-card.fire::before { background: #e74c3c; }
+  .summary-card.rescue { border-color: var(--warning); }
+  .summary-card.rescue::before { background: var(--warning); }
+  .summary-card.aid { border-color: var(--success); }
+  .summary-card.aid::before { background: var(--success); }
+  .summary-card.other { border-color: var(--info); }
+  .summary-card.other::before { background: var(--info); }
+  .summary-card.damage { border-color: #8e44ad; }
+
+  .sc-icon { font-size: 1.6rem; margin-bottom: 8px; }
+  .sc-label { font-size: 0.72rem; color: var(--text-light); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+  .sc-value { font-size: 1.9rem; font-weight: 800; line-height: 1; margin: 4px 0; }
+  .sc-sub { font-size: 0.72rem; color: var(--text-light); }
+  .summary-card.total .sc-value { color: var(--primary); }
+  .summary-card.fire .sc-value { color: #e74c3c; }
+  .summary-card.rescue .sc-value { color: var(--warning); }
+  .summary-card.aid .sc-value { color: var(--success); }
+  .summary-card.other .sc-value { color: var(--info); }
+  .summary-card.damage .sc-value { color: #8e44ad; font-size: 1.3rem; }
+
+  /* ─── TWO COLUMN LAYOUT ─── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+  @media (max-width: 1100px) { .two-col { grid-template-columns: 1fr; } .three-col { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 700px) { .three-col { grid-template-columns: 1fr; } }
+
+  /* ─── CARD ─── */
+  .card {
+    background: var(--card-bg); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 2px solid var(--bg);
+    background: linear-gradient(90deg, var(--primary-light), white);
+  }
+  .card-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.92rem; font-weight: 700; color: var(--primary-dark);
+  }
+  .card-title .icon { font-size: 1.1rem; }
+  .card-body { padding: 16px 18px; }
+
+  /* ─── STAT TABLE ─── */
+  .stat-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  .stat-table th {
+    background: var(--primary); color: white; padding: 8px 10px;
+    text-align: center; font-weight: 600; font-size: 0.78rem;
+  }
+  .stat-table th.sub { background: var(--primary-dark); }
+  .stat-table td { padding: 7px 10px; text-align: center; border-bottom: 1px solid #f0f0f0; }
+  .stat-table tr:last-child td { border-bottom: none; }
+  .stat-table tr.daily { background: #fff8f8; font-weight: 700; }
+  .stat-table tr.cumul { background: #f8faff; }
+  .stat-table tr.daily td:first-child { color: var(--primary); font-weight: 800; }
+  .stat-table tr.cumul td:first-child { color: var(--info); font-weight: 700; }
+  .stat-table .highlight { color: var(--primary); font-weight: 800; font-size: 0.95rem; }
+
+  /* ─── FORCE TABLE ─── */
+  .force-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+  }
+  .force-section h4 {
+    font-size: 0.8rem; color: var(--text-light); margin-bottom: 8px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .force-bars { display: flex; flex-direction: column; gap: 7px; }
+  .force-bar-item { display: flex; align-items: center; gap: 8px; }
+  .force-bar-label { font-size: 0.75rem; color: var(--text-light); width: 60px; text-align: right; }
+  .force-bar-track { flex: 1; background: #f0f0f0; border-radius: 100px; height: 10px; overflow: hidden; }
+  .force-bar-fill { height: 100%; border-radius: 100px; transition: width 0.8s ease; }
+  .force-bar-val { font-size: 0.78rem; font-weight: 700; width: 28px; }
+
+  /* ─── MAP SECTION ─── */
+  .map-wrapper { position: relative; }
+  #kakao-map {
+    width: 100%; height: 380px; border-radius: 10px;
+    background: linear-gradient(135deg, #dfe6e9, #b2bec3);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .map-placeholder {
+    text-align: center; color: #636e72;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    z-index: 1;
+  }
+  .map-placeholder .mp-icon { font-size: 3rem; }
+  .map-placeholder p { font-size: 0.85rem; }
+  .map-placeholder small { font-size: 0.72rem; color: #b2bec3; }
+  .map-legend {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    margin-top: 10px; padding: 10px 0 0;
+    border-top: 1px solid var(--border);
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+  /* ─── ACTIVITY LIST ─── */
+  .activity-list { display: flex; flex-direction: column; gap: 12px; }
+  .activity-item {
+    border-radius: 10px; padding: 14px;
+    border-left: 4px solid transparent; position: relative;
+    background: #fafafa; transition: all 0.2s;
+    cursor: pointer;
+  }
+  .activity-item:hover { transform: translateX(3px); box-shadow: var(--shadow); }
+  .activity-item.fire-item { border-color: #e74c3c; background: #fff5f5; }
+  .activity-item.rescue-item { border-color: var(--warning); background: #fffbf0; }
+  .activity-item.aid-item { border-color: var(--success); background: #f0fff4; }
+  .activity-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .badge-fire { background: #e74c3c; color: white; }
+  .badge-rescue { background: var(--warning); color: white; }
+  .badge-aid { background: var(--success); color: white; }
+  .activity-addr { font-size: 0.88rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .activity-time { font-size: 0.75rem; color: var(--text-light); margin-bottom: 6px; }
+  .activity-desc { font-size: 0.78rem; color: #555; line-height: 1.5; }
+  .activity-timeline {
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px dashed #ddd;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .tl-item { display: flex; gap: 10px; font-size: 0.75rem; }
+  .tl-time { color: var(--primary); font-weight: 700; white-space: nowrap; }
+  .tl-text { color: #555; }
+
+  /* ─── CHART CONTAINER ─── */
+  .chart-container { position: relative; height: 220px; }
+
+  /* ─── DAMAGE INFO ─── */
+  .damage-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .damage-item {
+    text-align: center; padding: 12px 8px; border-radius: 8px;
+    background: var(--bg);
+  }
+  .damage-item .d-val { font-size: 1.3rem; font-weight: 800; }
+  .damage-item .d-label { font-size: 0.72rem; color: var(--text-light); margin-top: 2px; }
+  .damage-item.death .d-val { color: var(--primary); }
+  .damage-item.injury .d-val { color: var(--accent); }
+  .damage-item.money .d-val { color: #8e44ad; font-size: 1rem; }
+
+  /* ─── CUMUL PROGRESS ─── */
+  .cumul-section { margin-top: 12px; }
+  .cumul-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .cumul-label { font-size: 0.78rem; font-weight: 600; width: 50px; color: var(--text-light); }
+  .cumul-track { flex: 1; background: #f0f0f0; border-radius: 100px; height: 14px; overflow: hidden; }
+  .cumul-fill { height: 100%; border-radius: 100px; display: flex; align-items: center; padding-left: 6px; }
+  .cumul-fill span { font-size: 0.65rem; color: white; font-weight: 700; white-space: nowrap; }
+  .cumul-num { font-size: 0.82rem; font-weight: 700; width: 50px; text-align: right; }
+
+  /* ─── MODAL OVERLAY ─── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    z-index: 1000; display: flex; align-items: center; justify-content: center;
+    padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.25s;
+  }
+  .modal-overlay.active { opacity: 1; pointer-events: all; }
+  .modal {
+    background: white; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    width: 100%; max-width: 1100px; max-height: 90vh;
+    display: flex; flex-direction: column;
+    transform: scale(0.95) translateY(20px); transition: transform 0.25s;
+  }
+  .modal-overlay.active .modal { transform: scale(1) translateY(0); }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 24px; border-bottom: 2px solid var(--bg);
+    background: linear-gradient(90deg, var(--primary-light), white);
+    border-radius: 16px 16px 0 0; flex-shrink: 0;
+  }
+  .modal-title { font-size: 1.05rem; font-weight: 700; color: var(--primary-dark); display: flex; align-items: center; gap: 8px; }
+  .modal-close {
+    width: 32px; height: 32px; border-radius: 50%; border: none;
+    background: #f0f0f0; cursor: pointer; font-size: 1rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s;
+  }
+  .modal-close:hover { background: var(--primary); color: white; }
+  .modal-body { flex: 1; overflow-y: auto; padding: 20px 24px; }
+  .modal-footer {
+    padding: 14px 24px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+    flex-shrink: 0;
+  }
+
+  /* ─── INPUT MODAL LAYOUT ─── */
+  .input-modal-body {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; height: 100%;
+  }
+  .input-left { border-right: 2px solid var(--bg); padding-right: 20px; }
+  .input-right { }
+  .input-left h3, .input-right h3 {
+    font-size: 0.85rem; font-weight: 700; color: var(--text-light);
+    margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .preview-area {
+    width: 100%; min-height: 400px; background: #f8f9fa;
+    border-radius: 10px; border: 2px dashed var(--border);
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+  .preview-area img { width: 100%; height: 100%; object-fit: contain; }
+  .preview-area .drop-hint {
+    text-align: center; color: var(--text-light);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .preview-area .drop-hint .dh-icon { font-size: 2.5rem; }
+  .preview-area .drop-hint p { font-size: 0.85rem; }
+
+  /* ─── FORM FIELDS ─── */
+  .form-section { margin-bottom: 18px; }
+  .form-section-title {
+    font-size: 0.8rem; font-weight: 700; color: white;
+    background: var(--primary); padding: 5px 12px; border-radius: 6px;
+    margin-bottom: 10px; display: inline-block;
+  }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  .form-group { display: flex; flex-direction: column; gap: 3px; }
+  .form-group label { font-size: 0.72rem; color: var(--text-light); font-weight: 600; }
+  .form-group input, .form-group textarea, .form-group select {
+    padding: 7px 10px; border: 1.5px solid var(--border);
+    border-radius: 7px; font-size: 0.82rem; font-family: inherit;
+    transition: border-color 0.2s; background: white;
+  }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+    outline: none; border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(192,57,43,0.1);
+  }
+  .form-group textarea { resize: vertical; min-height: 60px; }
+  .form-group.full { grid-column: 1 / -1; }
+
+  /* ─── AI ANALYZE PROGRESS ─── */
+  .analyze-progress {
+    background: var(--primary-light); border-radius: 10px; padding: 14px;
+    margin-bottom: 14px; display: none;
+  }
+  .analyze-progress.show { display: block; }
+  .progress-label { font-size: 0.8rem; font-weight: 600; color: var(--primary-dark); margin-bottom: 8px; }
+  .progress-track { background: #ddd; border-radius: 100px; height: 8px; overflow: hidden; }
+  .progress-fill {
+    background: linear-gradient(90deg, var(--primary), var(--accent));
+    height: 100%; border-radius: 100px;
+    animation: progress-anim 2s ease-in-out infinite;
+    width: 30%;
+  }
+  @keyframes progress-anim {
+    0% { width: 10%; margin-left: 0; }
+    50% { width: 60%; }
+    100% { width: 10%; margin-left: 90%; }
+  }
+  .analyze-steps { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .analyze-step { font-size: 0.75rem; color: var(--text-light); display: flex; align-items: center; gap: 6px; }
+  .analyze-step.done { color: var(--success); }
+  .analyze-step.active { color: var(--primary); font-weight: 600; }
+  .step-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ─── UPLOAD ZONE ─── */
+  .upload-zone {
+    border: 2px dashed var(--primary); border-radius: 10px;
+    padding: 24px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: var(--primary-light);
+  }
+  .upload-zone:hover, .upload-zone.dragover {
+    background: #fde8e8; border-color: var(--primary-dark);
+    transform: scale(1.01);
+  }
+  .upload-zone .uz-icon { font-size: 2rem; margin-bottom: 8px; }
+  .upload-zone p { font-size: 0.82rem; color: var(--primary-dark); font-weight: 600; }
+  .upload-zone small { font-size: 0.72rem; color: var(--text-light); }
+  #file-input { display: none; }
+
+  /* ─── TABS ─── */
+  .tab-bar {
+    display: flex; gap: 0; border-bottom: 2px solid var(--border);
+    margin-bottom: 16px; overflow-x: auto;
+  }
+  .tab-btn {
+    padding: 8px 18px; border: none; background: none;
+    font-size: 0.82rem; font-weight: 600; color: var(--text-light);
+    cursor: pointer; border-bottom: 3px solid transparent;
+    margin-bottom: -2px; white-space: nowrap; transition: all 0.2s;
+  }
+  .tab-btn:hover { color: var(--primary); }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ─── HISTORY TABLE ─── */
+  .history-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .history-table th {
+    background: var(--secondary); color: white;
+    padding: 9px 12px; text-align: left; font-size: 0.78rem;
+  }
+  .history-table td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; }
+  .history-table tr:hover td { background: var(--primary-light); cursor: pointer; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 12px;
+    font-size: 0.7rem; font-weight: 700;
+  }
+  .tag-fire { background: #fde8e8; color: #c0392b; }
+  .tag-rescue { background: #fef9e7; color: #d68910; }
+  .tag-aid { background: #e9f7ef; color: #1e8449; }
+
+  /* ─── NOTIFICATIONS ─── */
+  .toast-container {
+    position: fixed; top: 20px; right: 20px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .toast {
+    background: white; border-radius: 10px; padding: 12px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15); border-left: 4px solid var(--success);
+    display: flex; align-items: center; gap: 10px; font-size: 0.82rem;
+    animation: slide-in 0.3s ease; min-width: 260px;
+  }
+  .toast.error { border-color: var(--primary); }
+  .toast.info { border-color: var(--info); }
+  @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+  /* ─── API SETTINGS MODAL ─── */
+  .settings-group { margin-bottom: 16px; }
+  .settings-group label { display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; }
+  .settings-group input {
+    width: 100%; padding: 9px 12px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-size: 0.85rem;
+  }
+  .settings-group .hint { font-size: 0.72rem; color: var(--text-light); margin-top: 4px; }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #f0f0f0; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb { background: #bbb; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #999; }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 900px) {
+    .input-modal-body { grid-template-columns: 1fr; }
+    .input-left { border-right: none; padding-right: 0; border-bottom: 2px solid var(--bg); padding-bottom: 16px; }
+    .header-right { display: none; }
+  }
+  @media (max-width: 600px) {
+    .main { padding: 12px; }
+    .summary-grid { grid-template-columns: repeat(3, 1fr); }
+    .damage-grid { grid-template-columns: 1fr; }
+  }
+
+  .no-data {
+    text-align: center; padding: 32px; color: var(--text-light);
+    font-size: 0.85rem;
+  }
+  .no-data .nd-icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+  .badge-new {
+    background: var(--primary); color: white;
+    font-size: 0.6rem; padding: 2px 5px; border-radius: 4px;
+    margin-left: 4px; vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══ HEADER ═══ -->
+<header class="header">
+  <div class="header-inner">
+    <div class="header-left">
+      <div class="header-logo">🚒</div>
+      <div class="header-title">
+        <h1>춘천소방서 일일상황보고 대시보드</h1>
+        <p>현장대응단 · 소방활동 관리 시스템 v2.0</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="date-badge" id="currentDateBadge">📅 2026.03.13 (금)</div>
+      <button class="btn btn-white" onclick="openHistoryModal()">📋 이력 조회</button>
+      <button class="btn btn-white" onclick="openSettingsModal()">⚙️ API 설정</button>
+      <button class="btn btn-white" onclick="exportExcel()">📊 엑셀 저장</button>
+      <button class="btn btn-accent" onclick="openUploadModal()">
+        📂 보고서 업로드 <span class="badge-new">NEW</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- WEATHER BAR -->
+<div class="weather-bar">
+  <div class="weather-item">🌤️ <span class="label">[춘천]</span> 흐림 -1.5°/13°</div>
+  <div class="weather-item">💧 <span class="label">습도</span> 84%</div>
+  <div class="weather-item">💨 <span class="label">바람</span> 남동풍 0.7m/s</div>
+  <div class="weather-item">🌡️ <span class="label">체감</span> -1.5°</div>
+  <div class="weather-item">⚠️ <span class="label">특보</span> 강원동해안 너울·풍랑 유의 / 빙판길 살얼음 주의</div>
+</div>
+
+<!-- ═══ MAIN ═══ -->
+<main class="main">
+
+  <!-- SUMMARY CARDS -->
+  <div class="summary-grid" id="summaryCards">
+    <div class="summary-card total">
+      <div class="sc-icon">🚨</div>
+      <div class="sc-label">총 출동건수</div>
+      <div class="sc-value" id="sc-total">65</div>
+      <div class="sc-sub">일일 119출동</div>
+    </div>
+    <div class="summary-card fire">
+      <div class="sc-icon">🔥</div>
+      <div class="sc-label">화재 출동</div>
+      <div class="sc-value" id="sc-fire">4</div>
+      <div class="sc-sub">출동 <span id="sc-fire-real">2</span> · 오인 <span id="sc-fire-false">2</span></div>
+    </div>
+    <div class="summary-card rescue">
+      <div class="sc-icon">🪖</div>
+      <div class="sc-label">구조 출동</div>
+      <div class="sc-value" id="sc-rescue">3</div>
+      <div class="sc-sub">구조인원 <span id="sc-rescue-person">1</span>명</div>
+    </div>
+    <div class="summary-card aid">
+      <div class="sc-icon">🚑</div>
+      <div class="sc-label">구급 출동</div>
+      <div class="sc-value" id="sc-aid">54</div>
+      <div class="sc-sub">이송인원 <span id="sc-aid-person">29</span>명</div>
+    </div>
+    <div class="summary-card other">
+      <div class="sc-icon">📋</div>
+      <div class="sc-label">기타 출동</div>
+      <div class="sc-value" id="sc-other">4</div>
+      <div class="sc-sub">예방경계</div>
+    </div>
+    <div class="summary-card damage">
+      <div class="sc-icon">💰</div>
+      <div class="sc-label">화재 피해액</div>
+      <div class="sc-value" id="sc-damage">530천원</div>
+      <div class="sc-sub">인명피해 없음</div>
+    </div>
+  </div>
+
+  <!-- ROW 1: 통계 차트 + 누계 현황 -->
+  <div class="two-col">
+    <!-- 일일 통계 차트 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="icon">📊</span> 일일 소방활동 통계</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-secondary" onclick="toggleChartType()">차트 전환</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="chart-container">
+          <canvas id="dailyChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 화재피해 + 누계 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="icon">📈</span> 화재피해 · 누계 현황</div>
+      </div>
+      <div class="card-body">
+        <div class="damage-grid">
+          <div class="damage-item death">
+            <div class="d-val" id="dmg-death">-</div>
+            <div class="d-label">사망 (누계 <span id="cdmg-death">2</span>)</div>
+          </div>
+          <div class="damage-item injury">
+            <div class="d-val" id="dmg-injury">-</div>
+            <div class="d-label">부상 (누계 <span id="cdmg-injury">5</span>)</div>
+          </div>
+          <div class="damage-item money">
+            <div class="d-val" id="dmg-money">530천</div>
+            <div class="d-label">재산피해 (누계 <span id="cdmg-money">266,745</span>천)</div>
+          </div>
+        </div>
+        <div class="cumul-section">
+          <p style="font-size:0.78rem;font-weight:700;color:var(--text-light);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px;">📌 누계 출동 현황</p>
+          <div class="cumul-row">
+            <span class="cumul-label">화재</span>
+            <div class="cumul-track">
+              <div class="cumul-fill" style="width:40%;background:linear-gradient(90deg,#e74c3c,#c0392b)">
+                <span>143건</span>
+              </div>
+            </div>
+            <span class="cumul-num" style="color:#e74c3c">143</span>
+          </div>
+          <div class="cumul-row">
+            <span class="cumul-label">구조</span>
+            <div class="cumul-track">
+              <div class="cumul-fill" style="width:55%;background:linear-gradient(90deg,#f39c12,#e67e22)">
+                <span>303건</span>
+              </div>
+            </div>
+            <span class="cumul-num" style="color:#f39c12">303</span>
+          </div>
+          <div class="cumul-row">
+            <span class="cumul-label">구급</span>
+            <div class="cumul-track">
+              <div class="cumul-fill" style="width:90%;background:linear-gradient(90deg,#27ae60,#1e8449)">
+                <span>3,744건</span>
+              </div>
+            </div>
+            <span class="cumul-num" style="color:#27ae60">3,744</span>
+          </div>
+          <div class="cumul-row">
+            <span class="cumul-label">기타</span>
+            <div class="cumul-track">
+              <div class="cumul-fill" style="width:20%;background:linear-gradient(90deg,#2980b9,#1a5276)">
+                <span>221건</span>
+              </div>
+            </div>
+            <span class="cumul-num" style="color:#2980b9">221</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 2: 소방력 현황 + 상세 출동표 -->
+  <div class="two-col">
+    <!-- 금일 소방력 현황 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="icon">👨‍🚒</span> 금일 소방력 현황</div>
+        <span style="font-size:0.75rem;color:var(--text-light)">2026.03.13 (금)</span>
+      </div>
+      <div class="card-body">
+        <div class="force-grid">
+          <div class="force-section">
+            <h4>👥 인력 현황</h4>
+            <div class="force-bars">
+              <div class="force-bar-item">
+                <span class="force-bar-label">전체</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--primary),var(--accent))"></div>
+                </div>
+                <span class="force-bar-val" style="color:var(--primary)">118</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">주간현장</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:68%;background:#e74c3c"></div>
+                </div>
+                <span class="force-bar-val">80</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">주간행정</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:32%;background:#e67e22"></div>
+                </div>
+                <span class="force-bar-val">38</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">야간현장</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:63%;background:#8e44ad"></div>
+                </div>
+                <span class="force-bar-val">74</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">야간행정</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:1%;background:#7f8c8d"></div>
+                </div>
+                <span class="force-bar-val">1</span>
+              </div>
+            </div>
+          </div>
+          <div class="force-section">
+            <h4>🚗 장비 현황</h4>
+            <div class="force-bars">
+              <div class="force-bar-item">
+                <span class="force-bar-label">전체</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:100%;background:linear-gradient(90deg,var(--info),#1a5276)"></div>
+                </div>
+                <span class="force-bar-val" style="color:var(--info)">43</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">펌프</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:23%;background:#e74c3c"></div>
+                </div>
+                <span class="force-bar-val">10</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">탱크</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:5%;background:#e67e22"></div>
+                </div>
+                <span class="force-bar-val">2</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">구급</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:19%;background:#27ae60"></div>
+                </div>
+                <span class="force-bar-val">8</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">구조</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:9%;background:#2980b9"></div>
+                </div>
+                <span class="force-bar-val">4</span>
+              </div>
+              <div class="force-bar-item">
+                <span class="force-bar-label">기타</span>
+                <div class="force-bar-track">
+                  <div class="force-bar-fill" style="width:44%;background:#7f8c8d"></div>
+                </div>
+                <span class="force-bar-val">19</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">
+          <div class="chart-container" style="height:140px">
+            <canvas id="forceChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상세 출동 통계표 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="icon">📋</span> 상세 출동 통계표</div>
+      </div>
+      <div class="card-body" style="padding:10px">
+        <table class="stat-table">
+          <thead>
+            <tr>
+              <th rowspan="2">구분</th>
+              <th colspan="5">화재</th>
+              <th colspan="2">구조</th>
+              <th colspan="2">구급</th>
+              <th>기타</th>
+            </tr>
+            <tr>
+              <th class="sub">계</th>
+              <th class="sub">출동</th>
+              <th class="sub">오인</th>
+              <th class="sub">사망</th>
+              <th class="sub">부상</th>
+              <th class="sub">출동</th>
+              <th class="sub">인원</th>
+              <th class="sub">출동</th>
+              <th class="sub">인원</th>
+              <th class="sub">출동</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="daily">
+              <td>일계</td>
+              <td class="highlight">4</td><td>2</td><td>2</td><td>-</td><td>-</td>
+              <td>3</td><td>1</td>
+              <td class="highlight">54</td><td>29</td>
+              <td>4</td>
+            </tr>
+            <tr class="cumul">
+              <td>누계</td>
+              <td>143</td><td>38</td><td>105</td><td>2</td><td>5</td>
+              <td>303</td><td>45</td>
+              <td>3,744</td><td>2,048</td>
+              <td>221</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="margin-top:12px;font-size:0.72rem;color:var(--text-light);line-height:1.7">
+          <div>※ 화재출동: 4건 (기타화재 2, 속보설비 2)</div>
+          <div>※ 구조출동: 3건 (기타안전사고 1, 실종자 1, 자살의심 1)</div>
+          <div>※ 기타출동: 4건 (예방경계 4)</div>
+          <div>※ 화재예방조례 위반: 금일 0건 / 누적 7건</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROW 3: 카카오맵 + 주요활동 -->
+  <div class="two-col" style="margin-bottom:20px">
+    <!-- 카카오맵 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="icon">🗺️</span> 주요활동 지도 시각화</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-info" onclick="openSettingsModal()">🔑 API키 설정</button>
+          <button class="btn btn-sm btn-secondary" onclick="loadKakaoMap()">지도 로드</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:12px">
+        <div class="map-wrapper">
+          <div id="kakao-map">
+            <div class="map-placeholder">
+              <div class="mp-icon">🗺️</div>
+              <p>카카오맵 API 키를 설정하면<br>지도가 표시됩니다</p>
+              <small>⚙️ API 설정 버튼을 클릭하여 Kakao API 키를 입력하세요</small>
+              <button class="btn btn-primary" style="margin-top:12px" onclick="openSettingsModal()">⚙️ API 키 설정</button>
+            </div>
+          </div>
+          <div class="map-legend">
+            <div class="legend-item">
+              <div class="legend-dot" style="background:#e74c3c"></div>화재
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:#f39c12"></div>구조
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:#27ae60"></div>구급
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background:#2980b9"></div>소방서
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 주요 활동 처리 -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title"><span class="icon">🚨</span> 주요 소방활동 처리</div>
+        <span style="font-size:0.75rem;color:var(--text-light)" id="activityCount">총 2건</span>
+      </div>
+      <div class="card-body">
+        <div class="activity-list" id="activityList">
+          <div class="activity-item fire-item" onclick="focusMapMarker('fire1')">
+            <div class="activity-badge badge-fire">🔥 화재</div>
+            <div class="activity-addr">📍 춘천시 효자동 192-32</div>
+            <div class="activity-time">⏱️ 18:26 ~ 19:12 (완진 18:36)</div>
+            <div class="activity-desc">강원대학교 쓰레기장 화재 신고. 학생 3명이 소화기로 자체진화 후 안전조치.</div>
+            <div class="activity-timeline">
+              <div class="tl-item"><span class="tl-time">18:26</span><span class="tl-text">쓰레기장 화재 신고 접수</span></div>
+              <div class="tl-item"><span class="tl-time">18:34</span><span class="tl-text">춘천지휘 현장도착 · 지휘권 선언 / 학생 소화기 자체진화</span></div>
+              <div class="tl-item"><span class="tl-time">18:35</span><span class="tl-text">추가 안전조치 실시</span></div>
+              <div class="tl-item"><span class="tl-time">18:36</span><span class="tl-text">✅ 완진</span></div>
+            </div>
+          </div>
+          <div class="activity-item rescue-item" onclick="focusMapMarker('rescue1')">
+            <div class="activity-badge badge-rescue">🪖 구조</div>
+            <div class="activity-addr">📍 춘천시 후평동 731-30</div>
+            <div class="activity-time">⏱️ 15:57 ~ 17:41 (미발견 귀소)</div>
+            <div class="activity-desc">경찰 공동대응 · 치매노인(83세/여) 실종 신고. 한신아파트·한국전력·봉의고 일대 수색 후 미발견.</div>
+            <div class="activity-timeline">
+              <div class="tl-item"><span class="tl-time">15:57</span><span class="tl-text">치매노인 실종 신고 (경찰 공동대응)</span></div>
+              <div class="tl-item"><span class="tl-time">15:57~</span><span class="tl-text">한신아파트·한전·봉의고·인공폭포·팔호광장 수색</span></div>
+              <div class="tl-item"><span class="tl-time">17:41</span><span class="tl-text">⚠️ 구조대상자 미발견 · 재접보시 재출동 안내 후 귀소</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ═══════════════════════════════════════════
+     MODAL 1: 보고서 업로드 & AI 분석
+═══════════════════════════════════════════ -->
+<div class="modal-overlay" id="uploadModal">
+  <div class="modal" style="max-width:1200px">
+    <div class="modal-header">
+      <div class="modal-title">📂 일일 상황보고서 업로드 &amp; AI 자동분석</div>
+      <button class="modal-close" onclick="closeModal('uploadModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- STEP 1: 파일 선택 -->
+      <div id="uploadStep1">
+        <div class="upload-zone" id="uploadZone"
+             onclick="document.getElementById('file-input').click()"
+             ondragover="handleDragOver(event)"
+             ondragleave="handleDragLeave(event)"
+             ondrop="handleDrop(event)">
+          <div class="uz-icon">📁</div>
+          <p>JPG / PNG / PDF 파일을 드래그하거나 클릭하여 업로드</p>
+          <small>지원 형식: .jpg .jpeg .png .pdf · 최대 20MB</small>
+        </div>
+        <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.pdf"
+               onchange="handleFileSelect(event)">
+        <div class="analyze-progress" id="analyzeProgress">
+          <div class="progress-label">🤖 AI가 보고서를 분석하고 있습니다...</div>
+          <div class="progress-track"><div class="progress-fill"></div></div>
+          <div class="analyze-steps">
+            <div class="analyze-step" id="step1"><span class="step-dot"></span> 파일 로드 및 이미지 전처리</div>
+            <div class="analyze-step" id="step2"><span class="step-dot"></span> OCR 텍스트 인식</div>
+            <div class="analyze-step" id="step3"><span class="step-dot"></span> 데이터 구조 분석</div>
+            <div class="analyze-step" id="step4"><span class="step-dot"></span> 필드 자동 매핑</div>
+            <div class="analyze-step" id="step5"><span class="step-dot"></span> 입력 서식 자동완성</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: 원본 + 입력 서식 -->
+      <div id="uploadStep2" style="display:none">
+        <div class="input-modal-body">
+          <!-- 좌측: 원본 미리보기 -->
+          <div class="input-left">
+            <h3>🖼️ 원본 보고서</h3>
+            <div class="preview-area" id="previewArea">
+              <div class="drop-hint">
+                <div class="dh-icon">📄</div>
+                <p>원본 파일이 여기에 표시됩니다</p>
+              </div>
+            </div>
+            <div style="margin-top:10px;padding:10px;background:#f8f9fa;border-radius:8px;font-size:0.75rem;color:var(--text-light)">
+              <strong style="color:var(--text)">분석 결과:</strong><br>
+              <span id="analyzeResultText">AI 분석 완료. 데이터가 자동 입력되었습니다. 내용을 확인하고 수정해 주세요.</span>
+            </div>
+          </div>
+
+          <!-- 우측: 입력 서식 -->
+          <div class="input-right">
+            <h3>✏️ 입력 서식 (자동완성 후 수정 가능)</h3>
+
+            <!-- 기본 정보 -->
+            <div class="form-section">
+              <div class="form-section-title">📅 기본 정보</div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>보고 기간 (시작)</label>
+                  <input type="datetime-local" id="f-dateStart" value="2026-03-12T07:00">
+                </div>
+                <div class="form-group">
+                  <label>보고 기간 (종료)</label>
+                  <input type="datetime-local" id="f-dateEnd" value="2026-03-13T07:00">
+                </div>
+                <div class="form-group">
+                  <label>소방서명</label>
+                  <input type="text" id="f-station" value="춘천소방서">
+                </div>
+                <div class="form-group">
+                  <label>부서명</label>
+                  <input type="text" id="f-dept" value="현장대응단">
+                </div>
+              </div>
+            </div>
+
+            <!-- 기상 -->
+            <div class="form-section">
+              <div class="form-section-title">🌤️ 기상 상황</div>
+              <div class="form-grid">
+                <div class="form-group">
+                  <label>최저/최고 기온 (°C)</label>
+                  <input type="text" id="f-temp" value="-1.5 / 13">
+                </div>
+                <div class="form-group">
+                  <label>체감온도 (°C)</label>
+                  <input type="text" id="f-tempFeel" value="-1.5">
+                </div>
+                <div class="form-group">
+                  <label>습도 (%)</label>
+                  <input type="text" id="f-humidity" value="84">
+                </div>
+                <div class="form-group">
+                  <label>바람</label>
+                  <input type="text" id="f-wind" value="남동풍 0.7m/s">
+                </div>
+                <div class="form-group full">
+                  <label>날씨 특보</label>
+                  <input type="text" id="f-weather-warn" value="강원동해안 너울·풍랑 유의, 빙판길·도로 살얼음 주의">
+                </div>
+              </div>
+            </div>
+
+            <!-- 일일 소방활동 -->
+            <div class="form-section">
+              <div class="form-section-title">🚒 일일 소방활동 통계</div>
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label>총 출동건수</label>
+                  <input type="number" id="f-total" value="65">
+                </div>
+                <div class="form-group">
+                  <label>화재 계</label>
+                  <input type="number" id="f-fire-total" value="4">
+                </div>
+                <div class="form-group">
+                  <label>화재 출동</label>
+                  <input type="number" id="f-fire-real" value="2">
+                </div>
+                <div class="form-group">
+                  <label>화재 오인</label>
+                  <input type="number" id="f-fire-false" value="2">
+                </div>
+                <div class="form-group">
+                  <label>화재 사망</label>
+                  <input type="text" id="f-fire-death" value="-">
+                </div>
+                <div class="form-group">
+                  <label>화재 부상</label>
+                  <input type="text" id="f-fire-injury" value="-">
+                </div>
+                <div class="form-group">
+                  <label>화재피해 (천원)</label>
+                  <input type="number" id="f-fire-damage" value="530">
+                </div>
+                <div class="form-group">
+                  <label>구조 출동</label>
+                  <input type="number" id="f-rescue" value="3">
+                </div>
+                <div class="form-group">
+                  <label>구조 인원</label>
+                  <input type="number" id="f-rescue-person" value="1">
+                </div>
+                <div class="form-group">
+                  <label>구급 출동</label>
+                  <input type="number" id="f-aid" value="54">
+                </div>
+                <div class="form-group">
+                  <label>구급 인원</label>
+                  <input type="number" id="f-aid-person" value="29">
+                </div>
+                <div class="form-group">
+                  <label>기타 출동</label>
+                  <input type="number" id="f-other" value="4">
+                </div>
+              </div>
+            </div>
+
+            <!-- 소방력 현황 -->
+            <div class="form-section">
+              <div class="form-section-title">👨‍🚒 금일 소방력 현황</div>
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label>인력 계</label>
+                  <input type="number" id="f-man-total" value="118">
+                </div>
+                <div class="form-group">
+                  <label>주간 현장</label>
+                  <input type="number" id="f-man-day-field" value="80">
+                </div>
+                <div class="form-group">
+                  <label>주간 행정</label>
+                  <input type="number" id="f-man-day-admin" value="38">
+                </div>
+                <div class="form-group">
+                  <label>야간 현장</label>
+                  <input type="number" id="f-man-night-field" value="74">
+                </div>
+                <div class="form-group">
+                  <label>야간 행정</label>
+                  <input type="number" id="f-man-night-admin" value="1">
+                </div>
+                <div class="form-group">
+                  <label>장비 계</label>
+                  <input type="number" id="f-eq-total" value="43">
+                </div>
+                <div class="form-group">
+                  <label>펌프차</label>
+                  <input type="number" id="f-eq-pump" value="10">
+                </div>
+                <div class="form-group">
+                  <label>탱크차</label>
+                  <input type="number" id="f-eq-tank" value="2">
+                </div>
+                <div class="form-group">
+                  <label>구급차</label>
+                  <input type="number" id="f-eq-aid" value="8">
+                </div>
+              </div>
+            </div>
+
+            <!-- 주요 활동 -->
+            <div class="form-section">
+              <div class="form-section-title">🚨 주요 소방활동 처리</div>
+              <div id="activityForms">
+                <div class="form-group" style="margin-bottom:8px">
+                  <label>활동 유형</label>
+                  <select id="fa-type-1">
+                    <option value="fire" selected>🔥 화재</option>
+                    <option value="rescue">🪖 구조</option>
+                    <option value="aid">🚑 구급</option>
+                  </select>
+                </div>
+                <div class="form-grid" style="margin-bottom:8px">
+                  <div class="form-group">
+                    <label>주소</label>
+                    <input type="text" id="fa-addr-1" value="춘천시 효자동 192-32">
+                  </div>
+                  <div class="form-group">
+                    <label>활동 시간</label>
+                    <input type="text" id="fa-time-1" value="18:26 ~ 19:12">
+                  </div>
+                </div>
+                <div class="form-group" style="margin-bottom:14px">
+                  <label>상세 내용</label>
+                  <textarea id="fa-desc-1">강원대학교 쓰레기장에 불이 붙었다는 신고. 18:34 현장도착 지휘권 선언, 학생 3명이 소화기 사용하여 자체진화, 18:35 추가안전조치, 18:36 완진.</textarea>
+                </div>
+                <div class="form-group" style="margin-bottom:8px">
+                  <label>활동 유형</label>
+                  <select id="fa-type-2">
+                    <option value="fire">🔥 화재</option>
+                    <option value="rescue" selected>🪖 구조</option>
+                    <option value="aid">🚑 구급</option>
+                  </select>
+                </div>
+                <div class="form-grid" style="margin-bottom:8px">
+                  <div class="form-group">
+                    <label>주소</label>
+                    <input type="text" id="fa-addr-2" value="춘천시 후평동 731-30">
+                  </div>
+                  <div class="form-group">
+                    <label>활동 시간</label>
+                    <input type="text" id="fa-time-2" value="15:57 ~ 17:41">
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>상세 내용</label>
+                  <textarea id="fa-desc-2">경찰공동대응건으로 치매노인(83세/여) 실종 신고. 한신아파트·한국전력·봉의고 일대 수색 실시. 구조대상자 미발견, 재접보시 재출동 안내 후 귀소.</textarea>
+                </div>
+              </div>
+              <button class="btn btn-info btn-sm" style="margin-top:8px" onclick="addActivityForm()">+ 활동 추가</button>
+            </div>
+
+            <!-- 특이사항 -->
+            <div class="form-section">
+              <div class="form-section-title">📌 기타 특이사항</div>
+              <div class="form-group">
+                <label>특이사항 / 언론보도</label>
+                <textarea id="f-special">없음</textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" id="uploadFooter">
+      <div id="footerStep1">
+        <button class="btn btn-secondary" onclick="closeModal('uploadModal')">취소</button>
+      </div>
+      <div id="footerStep2" style="display:none;gap:10px;display:none">
+        <button class="btn btn-secondary" onclick="resetUpload()">↩ 다시 업로드</button>
+        <button class="btn btn-success" onclick="saveReportData()">💾 저장하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL 2: 이력 조회 ═══ -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="max-width:900px">
+    <div class="modal-header">
+      <div class="modal-title">📋 상황보고 이력 조회</div>
+      <button class="modal-close" onclick="closeModal('historyModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <input type="date" id="historyDateFrom" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:0.82rem" value="2026-03-01">
+        <input type="date" id="historyDateTo" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:7px;font-size:0.82rem" value="2026-03-13">
+        <button class="btn btn-primary btn-sm" onclick="searchHistory()">🔍 조회</button>
+        <button class="btn btn-success btn-sm" onclick="exportExcel()">📊 엑셀 다운로드</button>
+      </div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>날짜</th>
+            <th>출동계</th>
+            <th>화재</th>
+            <th>구조</th>
+            <th>구급</th>
+            <th>기타</th>
+            <th>화재피해(천)</th>
+            <th>인력</th>
+            <th>장비</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="historyTableBody">
+          <!-- JS로 채움 -->
+        </tbody>
+      </table>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('historyModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL 3: API 설정 ═══ -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ API 설정</div>
+      <button class="modal-close" onclick="closeModal('settingsModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="settings-group">
+        <label>🗺️ 카카오맵 JavaScript API 키</label>
+        <input type="text" id="kakaoApiKey" placeholder="카카오 개발자 콘솔에서 발급한 JS 앱 키">
+        <div class="hint">
+          <a href="https://developers.kakao.com" target="_blank">https://developers.kakao.com</a> 에서 앱 생성 후 JavaScript 키를 입력하세요.
+        </div>
+      </div>
+      <div class="settings-group">
+        <label>🤖 OpenAI API 키 (자동 OCR 분석용)</label>
+        <input type="password" id="openaiApiKey" placeholder="sk-...">
+        <div class="hint">GPT-4o Vision을 사용하여 보고서 이미지를 자동 분석합니다. 없으면 수동 입력 모드로 동작합니다.</div>
+      </div>
+      <div class="settings-group">
+        <label>🗄️ Supabase URL (선택사항)</label>
+        <input type="text" id="supabaseUrl" placeholder="https://xxxx.supabase.co">
+      </div>
+      <div class="settings-group">
+        <label>🔑 Supabase Anon Key (선택사항)</label>
+        <input type="password" id="supabaseKey" placeholder="eyJ...">
+        <div class="hint">설정 시 데이터가 Supabase에 저장됩니다. 미설정 시 로컬 저장소(localStorage) 사용.</div>
+      </div>
+      <div style="background:var(--primary-light);border-radius:8px;padding:12px;font-size:0.78rem;color:var(--primary-dark)">
+        <strong>⚠️ 보안 안내:</strong> API 키는 브라우저 로컬 저장소에만 저장되며 외부로 전송되지 않습니다.
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('settingsModal')">취소</button>
+      <button class="btn btn-success" onclick="saveSettings()">💾 저장 및 적용</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL 4: 활동 상세 ═══ -->
+<div class="modal-overlay" id="activityDetailModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <div class="modal-title" id="adm-title">🔥 화재 출동 상세</div>
+      <button class="modal-close" onclick="closeModal('activityDetailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="adm-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('activityDetailModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ JAVASCRIPT ═══════════ -->
+<script>
+// ── 데이터 저장소 ──
+let DB = {
+  settings: {
+    kakaoApiKey: '',
+    openaiApiKey: '',
+    supabaseUrl: '',
+    supabaseKey: ''
+  },
+  reports: []
+};
+
+// 초기 데이터 (샘플)
+const sampleReport = {
+  id: 'RPT-20260313',
+  dateStart: '2026-03-12T07:00',
+  dateEnd: '2026-03-13T07:00',
+  station: '춘천소방서',
+  dept: '현장대응단',
+  weather: { temp: '-1.5/13', feel: '-1.5', humidity: 84, wind: '남동풍 0.7m/s', warning: '너울·풍랑 유의' },
+  daily: {
+    total: 65,
+    fireTotal: 4, fireReal: 2, fireFalse: 2,
+    fireDeath: 0, fireInjury: 0, fireDamage: 530,
+    rescue: 3, rescuePerson: 1,
+    aid: 54, aidPerson: 29,
+    other: 4
+  },
+  cumul: {
+    fireTotal: 143, fireReal: 38, fireFalse: 105,
+    fireDeath: 2, fireInjury: 5, fireDamage: 266745,
+    rescue: 303, rescuePerson: 45,
+    aid: 3744, aidPerson: 2048,
+    other: 221
+  },
+  force: {
+    manTotal: 118, manDayField: 80, manDayAdmin: 38,
+    manNightField: 74, manNightAdmin: 1,
+    eqTotal: 43, eqPump: 10, eqTank: 2, eqAid: 8, eqRescue: 4, eqEtc: 19
+  },
+  activities: [
+    {
+      type: 'fire',
+      addr: '춘천시 효자동 192-32',
+      lat: 37.8693, lng: 127.7449,
+      time: '18:26 ~ 19:12',
+      desc: '강원대학교 쓰레기장 화재 신고. 학생 3명이 소화기로 자체진화 후 안전조치.',
+      timeline: [
+        { time: '18:26', text: '쓰레기장 화재 신고 접수' },
+        { time: '18:34', text: '현장도착 · 지휘권 선언 / 학생 소화기 자체진화' },
+        { time: '18:35', text: '추가 안전조치 실시' },
+        { time: '18:36', text: '완진' }
+      ]
+    },
+    {
+      type: 'rescue',
+      addr: '춘천시 후평동 731-30',
+      lat: 37.8796, lng: 127.7327,
+      time: '15:57 ~ 17:41',
+      desc: '경찰 공동대응 · 치매노인(83세/여) 실종 신고. 광범위 수색 후 미발견.',
+      timeline: [
+        { time: '15:57', text: '치매노인 실종 신고 (경찰 공동대응)' },
+        { time: '15:57~', text: '한신아파트·한전·봉의고·인공폭포·팔호광장 수색' },
+        { time: '17:41', text: '미발견 · 재접보시 재출동 안내 후 귀소' }
+      ]
+    }
+  ],
+  special: '없음'
+};
+
+// ── 앱 초기화 ──
+function initApp() {
+  loadSettings();
+  loadReports();
+  updateCurrentDate();
+  renderCharts();
+  renderForceChart();
+  if (DB.reports.length === 0) {
+    DB.reports.push(sampleReport);
+    saveReports();
+  }
+  renderHistoryTable();
+}
+
+function updateCurrentDate() {
+  const now = new Date();
+  const days = ['일','월','화','수','목','금','토'];
+  const d = `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} (${days[now.getDay()]})`;
+  document.getElementById('currentDateBadge').textContent = `📅 ${d}`;
+}
+
+// ── 설정 저장/로드 ──
+function loadSettings() {
+  const s = localStorage.getItem('fds_settings');
+  if (s) { DB.settings = { ...DB.settings, ...JSON.parse(s) }; applySettings(); }
+}
+function saveSettings() {
+  DB.settings.kakaoApiKey = document.getElementById('kakaoApiKey').value.trim();
+  DB.settings.openaiApiKey = document.getElementById('openaiApiKey').value.trim();
+  DB.settings.supabaseUrl = document.getElementById('supabaseUrl').value.trim();
+  DB.settings.supabaseKey = document.getElementById('supabaseKey').value.trim();
+  localStorage.setItem('fds_settings', JSON.stringify(DB.settings));
+  applySettings();
+  closeModal('settingsModal');
+  showToast('✅ 설정이 저장되었습니다', 'success');
+}
+function applySettings() {
+  if (DB.settings.kakaoApiKey) loadKakaoMap();
+  const km = document.getElementById('kakaoApiKey');
+  if (km) km.value = DB.settings.kakaoApiKey;
+}
+
+// ── 데이터 저장/로드 ──
+function loadReports() {
+  const r = localStorage.getItem('fds_reports');
+  if (r) DB.reports = JSON.parse(r);
+}
+function saveReports() {
+  localStorage.setItem('fds_reports', JSON.stringify(DB.reports));
+}
+
+// ── 차트 ──
+let dailyChartInst = null;
+let chartType = 'doughnut';
+
+function renderCharts() {
+  const ctx = document.getElementById('dailyChart').getContext('2d');
+  if (dailyChartInst) dailyChartInst.destroy();
+  const data = {
+    labels: ['화재', '구조', '구급', '기타'],
+    datasets: [{
+      data: [4, 3, 54, 4],
+      backgroundColor: ['#e74c3c','#f39c12','#27ae60','#2980b9'],
+      borderWidth: 2, borderColor: '#fff'
+    }]
+  };
+  dailyChartInst = new Chart(ctx, {
+    type: chartType,
+    data: data,
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 12 } },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) { return ` ${ctx.label}: ${ctx.raw}건 (${Math.round(ctx.raw/65*100)}%)`; }
+          }
+        }
+      },
+      cutout: chartType === 'doughnut' ? '60%' : 0
+    }
+  });
+}
+
+function toggleChartType() {
+  chartType = chartType === 'doughnut' ? 'bar' : 'doughnut';
+  renderCharts();
+}
+
+function renderForceChart() {
+  const ctx = document.getElementById('forceChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['펌프', '탱크', '구급', '구조', '기타'],
+      datasets: [{
+        label: '장비 현황',
+        data: [10, 2, 8, 4, 19],
+        backgroundColor: ['#e74c3c','#e67e22','#27ae60','#2980b9','#95a5a6'],
+        borderRadius: 6
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { font: { size: 10 } }, grid: { color: '#f0f0f0' } },
+        x: { ticks: { font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ── 카카오맵 ──
+function loadKakaoMap() {
+  const key = DB.settings.kakaoApiKey;
+  if (!key) { showToast('⚠️ 카카오맵 API 키를 먼저 설정해주세요', 'error'); openSettingsModal(); return; }
+
+  const mapDiv = document.getElementById('kakao-map');
+  mapDiv.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#636e72;font-size:0.85rem">🗺️ 지도 로딩 중...</div>';
+
+  const script = document.createElement('script');
+  script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&libraries=services&autoload=false`;
+  script.onload = function() {
+    kakao.maps.load(function() {
+      mapDiv.innerHTML = '';
+      mapDiv.style.background = '';
+      const map = new kakao.maps.Map(mapDiv, {
+        center: new kakao.maps.LatLng(37.8813, 127.7298),
+        level: 5
+      });
+
+      const activities = DB.reports[0]?.activities || sampleReport.activities;
+      activities.forEach((act, i) => {
+        const colors = { fire: '#e74c3c', rescue: '#f39c12', aid: '#27ae60' };
+        const icons = { fire: '🔥', rescue: '🪖', aid: '🚑' };
+        const content = `<div style="background:${colors[act.type]};color:white;padding:6px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3)">${icons[act.type]} ${act.addr.split(' ').slice(-1)[0]}</div>`;
+        const overlay = new kakao.maps.CustomOverlay({
+          position: new kakao.maps.LatLng(act.lat, act.lng),
+          content: content
+        });
+        overlay.setMap(map);
+      });
+
+      // 춘천소방서 마커
+      const stationContent = `<div style="background:#2c3e50;color:white;padding:6px 10px;border-radius:20px;font-size:0.75rem;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.3)">🚒 춘천소방서</div>`;
+      new kakao.maps.CustomOverlay({
+        position: new kakao.maps.LatLng(37.8813, 127.7298),
+        content: stationContent
+      }).setMap(map);
+
+      showToast('🗺️ 카카오맵 로드 완료', 'success');
+    });
+  };
+  script.onerror = function() {
+    mapDiv.innerHTML = '<div class="map-placeholder"><div class="mp-icon">⚠️</div><p>카카오맵 로드 실패</p><small>API 키를 확인해주세요</small></div>';
+    showToast('❌ 카카오맵 API 오류. 키를 확인해주세요', 'error');
+  };
+  document.head.appendChild(script);
+}
+
+function focusMapMarker(id) {
+  showToast('📍 지도에서 위치를 확인하세요', 'info');
+}
+
+// ── 파일 업로드 ──
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.add('dragover');
+}
+function handleDragLeave(e) {
+  document.getElementById('uploadZone').classList.remove('dragover');
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('uploadZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+}
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (file) processFile(file);
+}
+
+function processFile(file) {
+  const validTypes = ['image/jpeg','image/png','image/jpg','application/pdf'];
+  if (!validTypes.includes(file.type)) {
+    showToast('⚠️ JPG, PNG, PDF 파일만 지원합니다', 'error'); return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    showToast('⚠️ 파일 크기가 20MB를 초과합니다', 'error'); return;
+  }
+  document.getElementById('analyzeProgress').classList.add('show');
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    simulateAnalysis(e.target.result, file.type);
+  };
+  reader.readAsDataURL(file);
+}
+
+function simulateAnalysis(dataUrl, fileType) {
+  const steps = ['step1','step2','step3','step4','step5'];
+  const labels = ['파일 로드 완료','OCR 텍스트 인식 중...','데이터 구조 분석 중...','필드 매핑 완료','자동완성 완료!'];
+  let i = 0;
+  const interval = setInterval(() => {
+    if (i > 0) {
+      document.getElementById(steps[i-1]).classList.remove('active');
+      document.getElementById(steps[i-1]).classList.add('done');
+      document.getElementById(steps[i-1]).innerHTML = `<span class="step-dot"></span> ✅ ${labels[i-1]}`;
+    }
+    if (i < steps.length) {
+      document.getElementById(steps[i]).classList.add('active');
+      document.getElementById(steps[i]).innerHTML = `<span class="step-dot"></span> ⏳ ${labels[i]}`;
+      i++;
+    } else {
+      clearInterval(interval);
+      setTimeout(() => showStep2(dataUrl, fileType), 600);
+    }
+  }, 500);
+}
+
+function showStep2(dataUrl, fileType) {
+  document.getElementById('uploadStep1').style.display = 'none';
+  document.getElementById('uploadStep2').style.display = 'block';
+  document.getElementById('footerStep1').style.display = 'none';
+  const footerStep2 = document.getElementById('footerStep2');
+  footerStep2.style.display = 'flex';
+
+  const previewArea = document.getElementById('previewArea');
+  if (fileType === 'application/pdf') {
+    previewArea.innerHTML = '<div class="drop-hint"><div class="dh-icon">📄</div><p>PDF 파일이 업로드되었습니다</p><small>PDF 미리보기는 브라우저에서 지원됩니다</small></div>';
+  } else {
+    previewArea.innerHTML = `<img src="${dataUrl}" alt="보고서 원본">`;
+  }
+
+  // OpenAI API가 있으면 실제 분석, 없으면 기본값
+  if (DB.settings.openaiApiKey) {
+    analyzeWithOpenAI(dataUrl);
+  } else {
+    document.getElementById('analyzeResultText').textContent = 'API 키 미설정: 샘플 데이터가 자동 입력되었습니다. 직접 수정하여 저장해 주세요.';
+    showToast('✅ 분석 완료! 내용을 확인하고 수정해 주세요', 'success');
+  }
+}
+
+async function analyzeWithOpenAI(dataUrl) {
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DB.settings.openaiApiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: '이 소방활동 일일 상황보고서 이미지에서 데이터를 추출해주세요. JSON 형식으로: {"total":숫자, "fireTotal":숫자, "fireReal":숫자, "fireFalse":숫자, "fireDeath":숫자, "fireInjury":숫자, "fireDamage":숫자, "rescue":숫자, "rescuePerson":숫자, "aid":숫자, "aidPerson":숫자, "other":숫자, "manTotal":숫자, "eqTotal":숫자, "activities":[{"type":"fire/rescue/aid","addr":"주소","time":"시간","desc":"설명"}], "special":"특이사항"}' },
+            { type: 'image_url', image_url: { url: dataUrl } }
+          ]
+        }],
+        max_tokens: 1000
+      })
+    });
+    const result = await response.json();
+    const text = result.choices[0].message.content;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const data = JSON.parse(jsonMatch[0]);
+      applyExtractedData(data);
+      document.getElementById('analyzeResultText').textContent = '🤖 AI 분석 완료! GPT-4o가 데이터를 자동 추출했습니다. 내용을 확인해주세요.';
+      showToast('🤖 AI 분석 완료!', 'success');
+    }
+  } catch (err) {
+    document.getElementById('analyzeResultText').textContent = '⚠️ AI 분석 실패. 데이터를 직접 입력해주세요.';
+    showToast('⚠️ AI 분석 실패: ' + err.message, 'error');
+  }
+}
+
+function applyExtractedData(data) {
+  const fields = {
+    'f-total': data.total, 'f-fire-total': data.fireTotal, 'f-fire-real': data.fireReal,
+    'f-fire-false': data.fireFalse, 'f-fire-death': data.fireDeath, 'f-fire-injury': data.fireInjury,
+    'f-fire-damage': data.fireDamage, 'f-rescue': data.rescue, 'f-rescue-person': data.rescuePerson,
+    'f-aid': data.aid, 'f-aid-person': data.aidPerson, 'f-other': data.other,
+    'f-man-total': data.manTotal, 'f-eq-total': data.eqTotal
+  };
+  Object.entries(fields).forEach(([id, val]) => {
+    const el = document.getElementById(id);
+    if (el && val !== undefined) el.value = val;
+  });
+  if (data.special) document.getElementById('f-special').value = data.special;
+}
+
+function resetUpload() {
+  document.getElementById('uploadStep1').style.display = 'block';
+  document.getElementById('uploadStep2').style.display = 'none';
+  document.getElementById('footerStep1').style.display = 'block';
+  document.getElementById('footerStep2').style.display = 'none';
+  document.getElementById('analyzeProgress').classList.remove('show');
+  document.getElementById('file-input').value = '';
+  const steps = ['step1','step2','step3','step4','step5'];
+  steps.forEach(s => {
+    const el = document.getElementById(s);
+    el.className = 'analyze-step';
+  });
+}
+
+let activityCount = 2;
+function addActivityForm() {
+  activityCount++;
+  const container = document.getElementById('activityForms');
+  const div = document.createElement('div');
+  div.innerHTML = `
+    <hr style="border:none;border-top:1px dashed var(--border);margin:10px 0">
+    <div class="form-group" style="margin-bottom:8px">
+      <label>활동 유형</label>
+      <select id="fa-type-${activityCount}">
+        <option value="fire">🔥 화재</option>
+        <option value="rescue">🪖 구조</option>
+        <option value="aid">🚑 구급</option>
+      </select>
+    </div>
+    <div class="form-grid" style="margin-bottom:8px">
+      <div class="form-group">
+        <label>주소</label>
+        <input type="text" id="fa-addr-${activityCount}" placeholder="주소 입력">
+      </div>
+      <div class="form-group">
+        <label>활동 시간</label>
+        <input type="text" id="fa-time-${activityCount}" placeholder="예: 14:30 ~ 15:20">
+      </div>
+    </div>
+    <div class="form-group" style="margin-bottom:14px">
+      <label>상세 내용</label>
+      <textarea id="fa-desc-${activityCount}" placeholder="활동 상세 내용"></textarea>
+    </div>`;
+  container.appendChild(div);
+}
+
+function saveReportData() {
+  const report = {
+    id: `RPT-${Date.now()}`,
+    dateStart: document.getElementById('f-dateStart').value,
+    dateEnd: document.getElementById('f-dateEnd').value,
+    station: document.getElementById('f-station').value,
+    dept: document.getElementById('f-dept').value,
+    weather: {
+      temp: document.getElementById('f-temp').value,
+      feel: document.getElementById('f-tempFeel').value,
+      humidity: document.getElementById('f-humidity').value,
+      wind: document.getElementById('f-wind').value,
+      warning: document.getElementById('f-weather-warn').value
+    },
+    daily: {
+      total: +document.getElementById('f-total').value,
+      fireTotal: +document.getElementById('f-fire-total').value,
+      fireReal: +document.getElementById('f-fire-real').value,
+      fireFalse: +document.getElementById('f-fire-false').value,
+      fireDeath: document.getElementById('f-fire-death').value,
+      fireInjury: document.getElementById('f-fire-injury').value,
+      fireDamage: +document.getElementById('f-fire-damage').value,
+      rescue: +document.getElementById('f-rescue').value,
+      rescuePerson: +document.getElementById('f-rescue-person').value,
+      aid: +document.getElementById('f-aid').value,
+      aidPerson: +document.getElementById('f-aid-person').value,
+      other: +document.getElementById('f-other').value
+    },
+    force: {
+      manTotal: +document.getElementById('f-man-total').value,
+      manDayField: +document.getElementById('f-man-day-field').value,
+      manDayAdmin: +document.getElementById('f-man-day-admin').value,
+      manNightField: +document.getElementById('f-man-night-field').value,
+      manNightAdmin: +document.getElementById('f-man-night-admin').value,
+      eqTotal: +document.getElementById('f-eq-total').value,
+      eqPump: +document.getElementById('f-eq-pump').value,
+      eqTank: +document.getElementById('f-eq-tank').value,
+      eqAid: +document.getElementById('f-eq-aid').value
+    },
+    activities: [],
+    special: document.getElementById('f-special').value
+  };
+
+  for (let i = 1; i <= activityCount; i++) {
+    const typeEl = document.getElementById(`fa-type-${i}`);
+    if (typeEl) {
+      report.activities.push({
+        type: typeEl.value,
+        addr: document.getElementById(`fa-addr-${i}`)?.value || '',
+        time: document.getElementById(`fa-time-${i}`)?.value || '',
+        desc: document.getElementById(`fa-desc-${i}`)?.value || '',
+        lat: 37.8813, lng: 127.7298
+      });
+    }
+  }
+
+  // 중복 체크 (같은 날짜)
+  const existIdx = DB.reports.findIndex(r => r.dateStart === report.dateStart);
+  if (existIdx >= 0) {
+    if (!confirm('같은 날짜의 보고서가 이미 있습니다. 덮어쓰시겠습니까?')) return;
+    DB.reports[existIdx] = report;
+  } else {
+    DB.reports.unshift(report);
+  }
+  saveReports();
+  updateDashboard(report);
+  closeModal('uploadModal');
+  renderHistoryTable();
+  showToast('✅ 보고서가 저장되었습니다!', 'success');
+}
+
+function updateDashboard(r) {
+  const d = r.daily;
+  document.getElementById('sc-total').textContent = d.total;
+  document.getElementById('sc-fire').textContent = d.fireTotal;
+  document.getElementById('sc-fire-real').textContent = d.fireReal;
+  document.getElementById('sc-fire-false').textContent = d.fireFalse;
+  document.getElementById('sc-rescue').textContent = d.rescue;
+  document.getElementById('sc-rescue-person').textContent = d.rescuePerson;
+  document.getElementById('sc-aid').textContent = d.aid;
+  document.getElementById('sc-aid-person').textContent = d.aidPerson;
+  document.getElementById('sc-other').textContent = d.other;
+  document.getElementById('sc-damage').textContent = d.fireDamage ? d.fireDamage + '천원' : '없음';
+  renderCharts();
+}
+
+// ── 이력 조회 ──
+function renderHistoryTable() {
+  const tbody = document.getElementById('historyTableBody');
+  tbody.innerHTML = DB.reports.map((r, i) => {
+    const date = r.dateStart ? r.dateStart.split('T')[0] : '-';
+    return `
+      <tr onclick="loadReport(${i})">
+        <td>${date}</td>
+        <td><strong>${r.daily?.total || '-'}</strong></td>
+        <td><span class="tag tag-fire">${r.daily?.fireTotal || '-'}</span></td>
+        <td><span class="tag tag-rescue">${r.daily?.rescue || '-'}</span></td>
+        <td><span class="tag tag-aid">${r.daily?.aid || '-'}</span></td>
+        <td>${r.daily?.other || '-'}</td>
+        <td>${(r.daily?.fireDamage || 0).toLocaleString()}</td>
+        <td>${r.force?.manTotal || '-'}</td>
+        <td>${r.force?.eqTotal || '-'}</td>
+        <td>
+          <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();loadReport(${i})">📊 보기</button>
+          <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteReport(${i})" style="margin-left:4px">🗑️</button>
+        </td>
+      </tr>`;
+  }).join('') || '<tr><td colspan="10" class="no-data"><div class="nd-icon">📭</div><p>저장된 보고서가 없습니다</p></td></tr>';
+}
+
+function loadReport(idx) {
+  const r = DB.reports[idx];
+  if (!r) return;
+  updateDashboard(r);
+  closeModal('historyModal');
+  showToast(`📋 ${r.dateStart?.split('T')[0]} 보고서를 로드했습니다`, 'info');
+}
+
+function deleteReport(idx) {
+  if (!confirm('이 보고서를 삭제하시겠습니까?')) return;
+  DB.reports.splice(idx, 1);
+  saveReports();
+  renderHistoryTable();
+  showToast('🗑️ 삭제되었습니다', 'success');
+}
+
+function searchHistory() {
+  const from = document.getElementById('historyDateFrom').value;
+  const to = document.getElementById('historyDateTo').value;
+  showToast(`🔍 ${from} ~ ${to} 기간 조회`, 'info');
+}
+
+// ── 엑셀 내보내기 ──
+function exportExcel() {
+  if (typeof XLSX === 'undefined') { showToast('⚠️ XLSX 라이브러리 로드 중...', 'info'); return; }
+  const wb = XLSX.utils.book_new();
+  const data = [
+    ['춘천소방서 일일 상황보고 데이터'],
+    [],
+    ['날짜', '총출동', '화재계', '화재출동', '화재오인', '화재사망', '화재부상', '화재피해(천원)', '구조출동', '구조인원', '구급출동', '구급인원', '기타출동', '인력계', '장비계'],
+    ...DB.reports.map(r => [
+      r.dateStart?.split('T')[0] || '',
+      r.daily?.total, r.daily?.fireTotal, r.daily?.fireReal, r.daily?.fireFalse,
+      r.daily?.fireDeath, r.daily?.fireInjury, r.daily?.fireDamage,
+      r.daily?.rescue, r.daily?.rescuePerson, r.daily?.aid, r.daily?.aidPerson, r.daily?.other,
+      r.force?.manTotal, r.force?.eqTotal
+    ])
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  ws['!cols'] = Array(15).fill({ wch: 14 });
+  XLSX.utils.book_append_sheet(wb, ws, '일일보고현황');
+
+  // 주요활동 시트
+  const actData = [
+    ['날짜', '유형', '주소', '시간', '내용'],
+    ...DB.reports.flatMap(r =>
+      (r.activities || []).map(a => [r.dateStart?.split('T')[0], a.type, a.addr, a.time, a.desc])
+    )
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(actData);
+  ws2['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 20 }, { wch: 16 }, { wch: 50 }];
+  XLSX.utils.book_append_sheet(wb, ws2, '주요활동');
+
+  XLSX.writeFile(wb, `춘천소방서_일일보고_${new Date().toISOString().split('T')[0]}.xlsx`);
+  showToast('📊 엑셀 파일이 다운로드되었습니다', 'success');
+}
+
+// ── 모달 ──
+function openUploadModal() { openModal('uploadModal'); }
+function openHistoryModal() { renderHistoryTable(); openModal('historyModal'); }
+function openSettingsModal() {
+  const s = DB.settings;
+  document.getElementById('kakaoApiKey').value = s.kakaoApiKey || '';
+  document.getElementById('supabaseUrl').value = s.supabaseUrl || '';
+  openModal('settingsModal');
+}
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+// ESC 키로 모달 닫기
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+  }
+});
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('active');
+  });
+});
+
+// ── 토스트 ──
+function showToast(msg, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${msg}</span>`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+// ── 초기 실행 ──
+initApp();
+</script>
+</body>
+</html>

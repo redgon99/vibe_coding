@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>소방 출석관리 시스템</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --primary: #D32F2F;
+            --primary-dark: #B71C1C;
+            --bg-color: #f5f6FA;
+            --card-bg: #ffffff;
+            --text-main: #333333;
+            --text-light: #777777;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); line-height: 1.6; }
+        header { background-color: var(--primary); color: white; padding: 1rem; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .container { max-width: 800px; margin: 0 auto; padding: 1rem; }
+        .view { display: none; }
+        .view.active { display: block; }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        h2 { font-size: 1.2rem; margin-bottom: 1rem; color: var(--primary-dark); border-bottom: 2px solid #eee; padding-bottom: 0.5rem; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; font-size: 0.9rem; }
+        input, select { width: 100%; padding: 0.8rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
+        button {
+            width: 100%;
+            padding: 1rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover { background-color: var(--primary-dark); }
+        button.outline { background-color: transparent; color: var(--primary); border: 1px solid var(--primary); margin-top: 0.5rem; }
+        .qr-container { text-align: center; margin: 1.5rem 0; }
+        #qrcode { display: inline-block; padding: 1rem; background: white; border: 1px solid #ddd; border-radius: 8px; }
+        .stats-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
+        th, td { padding: 0.8rem; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f9f9f9; }
+        .dev-nav { text-align: center; margin-bottom: 1rem; font-size: 0.8rem; }
+        .dev-nav a { color: var(--text-light); cursor: pointer; text-decoration: underline; }
+        .dev-nav a:hover { color: var(--primary); }
+        .success-msg { display: none; text-align: center; padding: 2rem; }
+        .success-msg.visible { display: block; }
+        .success-title { color: var(--primary); font-size: 2rem; border: none; }
+        .card-note { font-size: 0.85rem; margin-bottom: 1rem; color: var(--text-light); }
+        .count-badge { color: var(--primary); }
+        .user-title { text-align: center; font-size: 1.5rem; }
+        .user-date { text-align: center; margin-bottom: 1.5rem; color: var(--text-light); }
+        .qr-link-text { text-align: center; font-size: 0.8rem; color: var(--text-light); }
+        @media (min-width: 600px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 id="app-title">소방서 출석관리 시스템</h1>
+    </header>
+
+    <div class="container">
+        <nav class="dev-nav" aria-label="개발 메뉴">
+            <a href="#" data-action="navigate-admin">관리자 모드</a>
+            <span aria-hidden="true"> | </span>
+            <a href="#" data-action="clear-data">데이터 초기화</a>
+        </nav>
+
+        <section id="view-admin" class="view active" aria-labelledby="admin-heading">
+            <div class="card">
+                <h2 id="admin-heading">새 교육/회의 세션 생성</h2>
+                <div class="form-group">
+                    <label for="sessionDate">날짜</label>
+                    <input type="date" id="sessionDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="sessionName">교육명</label>
+                    <input type="text" id="sessionName" placeholder="예: 상반기 소방전술훈련" required>
+                </div>
+                <button type="button" id="btnCreateSession">세션 생성 및 QR 발급</button>
+            </div>
+
+            <div class="card" id="qrCard" style="display:none;" aria-live="polite">
+                <h2>QR 코드 (출석용)</h2>
+                <div class="qr-container" id="qrcode"></div>
+                <p class="qr-link-text" id="qrLinkText"></p>
+            </div>
+
+            <div class="card stats-grid">
+                <div>
+                    <h2>부서별 출석 통계</h2>
+                    <canvas id="attendanceChart" aria-label="부서별 출석 막대 차트"></canvas>
+                </div>
+                <div>
+                    <h2>데이터 관리 (엑셀 연동)</h2>
+                    <p class="card-note">현재는 브라우저 내부에 데이터가 저장됩니다. 차후 Supabase로 전환됩니다.</p>
+                    <button type="button" id="btnExportExcel">엑셀로 다운로드</button>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>출석 현황 실시간 조회 <span id="totalCount" class="count-badge">(0명)</span></h2>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>시간</th>
+                                <th>소속/부서</th>
+                                <th>이름</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendanceList"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-user" class="view" aria-labelledby="user-heading">
+            <div class="card" id="userFormCard">
+                <h2 id="userSessionTitle" class="user-title">교육 출석 체크</h2>
+                <p class="user-date" id="userSessionDate"></p>
+                <div class="form-group">
+                    <label for="userDept">부서 (소속)</label>
+                    <select id="userDept">
+                        <option value="">선택하세요</option>
+                        <option value="119구조대">119구조대</option>
+                        <option value="119구급대">119구급대</option>
+                        <option value="현장대응단">현장대응단</option>
+                        <option value="예방안전과">예방안전과</option>
+                        <option value="소방행정과">소방행정과</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userName">이름</label>
+                    <input type="text" id="userName" placeholder="이름을 입력하세요" autocomplete="name">
+                </div>
+                <button type="button" id="btnSubmitAttendance">출석 확인</button>
+            </div>
+            <div id="successMsg" class="success-msg" aria-live="polite">
+                <h2 class="success-title">✅ 출석 완료!</h2>
+                <p>안전한 하루 되십시오.</p>
+            </div>
+        </section>
+    </div>
+
+    <script>
+(function () {
+    'use strict';
+
+    const STORAGE_KEYS = {
+        SESSIONS: 'fire_sessions',
+        ATTENDEES: 'fire_attendees'
+    };
+
+    const DB = {
+        getSessions() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.SESSIONS);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        },
+        saveSession(session) {
+            const sessions = DB.getSessions();
+            sessions.push(session);
+            localStorage.setItem(STORAGE_KEYS.SESSIONS, JSON.stringify(sessions));
+        },
+        getAttendees() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEYS.ATTENDEES);
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) {
+                return [];
+            }
+        },
+        getAttendeesBySessionId(sessionId) {
+            return DB.getAttendees().filter(function (a) { return a.sessionId === sessionId; });
+        },
+        saveAttendee(attendee) {
+            const attendees = DB.getAttendees();
+            attendees.push(attendee);
+            localStorage.setItem(STORAGE_KEYS.ATTENDEES, JSON.stringify(attendees));
+        },
+        clear() {
+            localStorage.removeItem(STORAGE_KEYS.SESSIONS);
+            localStorage.removeItem(STORAGE_KEYS.ATTENDEES);
+        }
+    };
+
+    function escapeHtml(str) {
+        if (str == null) return '';
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    var currentSessionId = null;
+    var chartInstance = null;
+
+    function navigateTo(viewName) {
+        document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+        var el = document.getElementById('view-' + viewName);
+        if (el) el.classList.add('active');
+    }
+
+    function getAttendanceUrl(sessionId) {
+        var base = window.location.href.split('?')[0];
+        return base + '?sessionId=' + encodeURIComponent(sessionId);
+    }
+
+    function createSession() {
+        var dateEl = document.getElementById('sessionDate');
+        var nameEl = document.getElementById('sessionName');
+        var date = dateEl && dateEl.value;
+        var name = nameEl && nameEl.value && nameEl.value.trim();
+
+        if (!date || !name) {
+            alert('날짜와 교육명을 입력해주세요.');
+            return;
+        }
+
+        var sessionId = 'SES_' + Date.now();
+        DB.saveSession({ id: sessionId, date: date, name: name });
+        generateQR(sessionId);
+        alert('세션이 생성되었습니다.');
+        renderAdminData();
+    }
+
+    function generateQR(sessionId) {
+        var qrCard = document.getElementById('qrCard');
+        var qrContainer = document.getElementById('qrcode');
+        var qrLinkText = document.getElementById('qrLinkText');
+        if (!qrContainer) return;
+
+        qrContainer.innerHTML = '';
+        var attendanceUrl = getAttendanceUrl(sessionId);
+
+        if (window.QRCode) {
+            new QRCode(qrContainer, {
+                text: attendanceUrl,
+                width: 200,
+                height: 200,
+                colorDark: '#D32F2F',
+                colorLight: '#ffffff',
+                correctLevel: window.QRCode && window.QRCode.CorrectLevel ? window.QRCode.CorrectLevel.H : 0
+            });
+        }
+        if (qrLinkText) qrLinkText.textContent = attendanceUrl;
+        if (qrCard) qrCard.style.display = 'block';
+    }
+
+    function renderAdminData() {
+        var attendees = DB.getAttendees();
+        var listTbody = document.getElementById('attendanceList');
+        var totalCount = document.getElementById('totalCount');
+
+        if (listTbody) {
+            listTbody.innerHTML = '';
+            attendees.slice().reverse().forEach(function (a) {
+                var tr = document.createElement('tr');
+                tr.innerHTML = '<td>' + escapeHtml(a.timestamp) + '</td><td>' + escapeHtml(a.dept) + '</td><td>' + escapeHtml(a.name) + '</td>';
+                listTbody.appendChild(tr);
+            });
+        }
+        if (totalCount) totalCount.textContent = '(' + attendees.length + '명)';
+        renderChart(attendees);
+    }
+
+    function renderChart(attendees) {
+        var deptCounts = {};
+        attendees.forEach(function (a) {
+            var d = a.dept || '(미입력)';
+            deptCounts[d] = (deptCounts[d] || 0) + 1;
+        });
+
+        var canvas = document.getElementById('attendanceChart');
+        if (!canvas) return;
+
+        if (chartInstance) {
+            chartInstance.destroy();
+            chartInstance = null;
+        }
+
+        if (window.Chart) {
+            chartInstance = new Chart(canvas.getContext('2d'), {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(deptCounts),
+                    datasets: [{
+                        label: '출석 인원',
+                        data: Object.values(deptCounts),
+                        backgroundColor: '#D32F2F',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+    }
+
+    function exportToExcel() {
+        var attendees = DB.getAttendees();
+        if (attendees.length === 0) {
+            alert('출석 데이터가 없습니다.');
+            return;
+        }
+        if (typeof XLSX === 'undefined') {
+            alert('엑셀 라이브러리를 불러올 수 없습니다.');
+            return;
+        }
+        var ws = XLSX.utils.json_to_sheet(attendees);
+        var wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '출석부');
+        var today = new Date().toISOString().slice(0, 10);
+        XLSX.writeFile(wb, '소방출석부_' + today + '.xlsx');
+    }
+
+    function setupUserPage(sessionId) {
+        navigateTo('user');
+        var sessions = DB.getSessions();
+        var sessionInfo = sessions.filter(function (s) { return s.id === sessionId; })[0];
+
+        var titleEl = document.getElementById('userSessionTitle');
+        var dateEl = document.getElementById('userSessionDate');
+        var formCard = document.getElementById('userFormCard');
+        var successMsg = document.getElementById('successMsg');
+
+        if (sessionInfo && titleEl && dateEl) {
+            titleEl.textContent = sessionInfo.name;
+            dateEl.textContent = sessionInfo.date;
+        } else {
+            alert('유효하지 않은 출석 링크입니다. (테스트 환경에서는 동일한 브라우저를 사용해야 합니다)');
+        }
+        if (formCard) formCard.style.display = '';
+        if (successMsg) successMsg.classList.remove('visible');
+    }
+
+    function submitAttendance() {
+        var deptEl = document.getElementById('userDept');
+        var nameEl = document.getElementById('userName');
+        var dept = deptEl && deptEl.value;
+        var name = nameEl && nameEl.value && nameEl.value.trim();
+
+        if (!dept || !name) {
+            alert('부서와 이름을 모두 입력해주세요.');
+            return;
+        }
+
+        var now = new Date();
+        var timestamp = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
+        var dateStr = now.toISOString().split('T')[0];
+
+        DB.saveAttendee({
+            sessionId: currentSessionId,
+            dept: dept,
+            name: name,
+            timestamp: timestamp,
+            date: dateStr
+        });
+
+        var formCard = document.getElementById('userFormCard');
+        var successMsg = document.getElementById('successMsg');
+        if (formCard) formCard.style.display = 'none';
+        if (successMsg) successMsg.classList.add('visible');
+    }
+
+    function clearData() {
+        if (!confirm('모든 데이터를 삭제하시겠습니까?')) return;
+        DB.clear();
+        window.location.href = window.location.href.split('?')[0];
+    }
+
+    function init() {
+        var sessionDate = document.getElementById('sessionDate');
+        if (sessionDate) sessionDate.value = new Date().toISOString().slice(0, 10);
+
+        var urlParams = new URLSearchParams(window.location.search);
+        var sessionId = urlParams.get('sessionId');
+
+        if (sessionId) {
+            currentSessionId = sessionId;
+            setupUserPage(sessionId);
+        } else {
+            navigateTo('admin');
+            renderAdminData();
+        }
+
+        document.getElementById('btnCreateSession').addEventListener('click', createSession);
+        document.getElementById('btnExportExcel').addEventListener('click', exportToExcel);
+        document.getElementById('btnSubmitAttendance').addEventListener('click', submitAttendance);
+
+        document.querySelectorAll('[data-action="navigate-admin"]').forEach(function (a) {
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                navigateTo('admin');
+                renderAdminData();
+            });
+        });
+        document.querySelectorAll('[data-action="clear-data"]').forEach(function (a) {
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                clearData();
+            });
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+    </script>
+</body>
+</html>

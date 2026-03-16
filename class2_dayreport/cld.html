@@ -1,0 +1,1927 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>119 소방활동 일일 상황 관리시스템</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --red: #E8212A;
+    --red-dark: #B01820;
+    --red-glow: rgba(232,33,42,0.3);
+    --navy: #0D1B2A;
+    --navy2: #132236;
+    --navy3: #1A2F47;
+    --slate: #243B55;
+    --accent: #FF6B35;
+    --gold: #F5A623;
+    --cyan: #00D4FF;
+    --green: #00C875;
+    --white: #F0F4F8;
+    --text-muted: #8BA3BE;
+    --border: rgba(255,255,255,0.08);
+    --card-bg: rgba(19,34,54,0.9);
+    --glass: rgba(255,255,255,0.04);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--navy);
+    color: var(--white);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── 배경 그리드 ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── TOP BAR ── */
+  header {
+    position: sticky; top:0; z-index:100;
+    background: linear-gradient(135deg, #0a0f1a 0%, var(--navy2) 100%);
+    border-bottom: 2px solid var(--red);
+    padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px;
+    box-shadow: 0 4px 30px rgba(232,33,42,0.2);
+  }
+
+  .header-left { display:flex; align-items:center; gap:14px; }
+
+  .logo-badge {
+    background: var(--red);
+    color: #fff;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    box-shadow: 0 0 20px var(--red-glow);
+  }
+
+  .header-title {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--white);
+  }
+
+  .header-subtitle {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  .header-right { display:flex; align-items:center; gap:12px; }
+
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.6; transform:scale(1.3); }
+  }
+
+  .date-display {
+    font-size: 12px;
+    color: var(--cyan);
+    font-weight: 500;
+    letter-spacing: 1px;
+  }
+
+  .btn {
+    display: inline-flex; align-items:center; gap:6px;
+    padding: 7px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+
+  .btn-primary {
+    background: var(--red);
+    color: #fff;
+    box-shadow: 0 0 14px var(--red-glow);
+  }
+  .btn-primary:hover { background: var(--red-dark); transform:translateY(-1px); }
+
+  .btn-outline {
+    background: transparent;
+    border: 1px solid var(--cyan);
+    color: var(--cyan);
+  }
+  .btn-outline:hover { background: rgba(0,212,255,0.1); }
+
+  .btn-ghost {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+  }
+  .btn-ghost:hover { color: var(--white); border-color: var(--white); }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    position: relative; z-index: 1;
+    padding: 20px 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* ── SECTION LABEL ── */
+  .section-label {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  .section-label .bar {
+    width: 4px; height: 20px;
+    background: var(--red);
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--red-glow);
+  }
+
+  .section-label span {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--white);
+  }
+
+  .section-label .tag {
+    font-size: 10px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+  }
+
+  /* ── STAT CARDS ROW ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .stat-card.fire::before { background: linear-gradient(90deg, var(--red), var(--accent)); }
+  .stat-card.rescue::before { background: linear-gradient(90deg, var(--cyan), #0099cc); }
+  .stat-card.ems::before { background: linear-gradient(90deg, var(--green), #009966); }
+  .stat-card.other::before { background: linear-gradient(90deg, var(--gold), #cc8800); }
+  .stat-card.total::before { background: linear-gradient(90deg, #9b59b6, #6c3483); }
+
+  .stat-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-card.fire .stat-value { color: var(--red); }
+  .stat-card.rescue .stat-value { color: var(--cyan); }
+  .stat-card.ems .stat-value { color: var(--green); }
+  .stat-card.other .stat-value { color: var(--gold); }
+  .stat-card.total .stat-value { color: #c39bd3; }
+
+  .stat-sub {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex; align-items: center; gap: 4px;
+  }
+
+  .stat-sub .badge {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  .badge-cum { background: rgba(255,255,255,0.08); color: var(--text-muted); }
+
+  /* ── TWO COLUMN LAYOUT ── */
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+  /* ── CARD ── */
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    position: relative;
+  }
+
+  .card-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  /* ── TABLE ── */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+
+  .data-table th {
+    background: rgba(255,255,255,0.04);
+    color: var(--text-muted);
+    font-weight: 600;
+    letter-spacing: 1px;
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+
+  .data-table td {
+    padding: 8px 10px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-weight: 500;
+  }
+
+  .data-table tr:hover td { background: rgba(255,255,255,0.03); }
+  .data-table .row-total td { color: var(--cyan); font-weight: 700; }
+  .data-table .row-cum td { color: var(--gold); font-size: 11px; }
+
+  /* ── FORCE STAT ── */
+  .force-grid {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 10px;
+  }
+
+  .force-item {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .force-num { font-size: 22px; font-weight: 900; color: var(--cyan); }
+  .force-lbl { font-size: 10px; color: var(--text-muted); letter-spacing: 1px; margin-top: 2px; }
+
+  /* ── MAP SECTION ── */
+  .map-section {
+    margin-bottom: 24px;
+  }
+
+  #kakao-map {
+    width: 100%;
+    height: 400px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    background: var(--navy3);
+    position: relative;
+  }
+
+  .map-placeholder {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 12px;
+    color: var(--text-muted);
+  }
+
+  .map-placeholder .map-icon { font-size: 48px; }
+  .map-placeholder p { font-size: 12px; letter-spacing: 1px; }
+  .map-placeholder .map-key-input {
+    display: flex; gap: 8px; margin-top: 8px;
+  }
+  .map-key-input input {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    color: var(--white);
+    font-size: 12px;
+    width: 240px;
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .map-key-input input::placeholder { color: var(--text-muted); }
+
+  /* 지도 위 사건 마커 */
+  .incident-list {
+    display: flex; flex-direction: column; gap: 10px;
+    margin-top: 14px;
+  }
+
+  .incident-item {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+
+  .incident-item.rescue { border-left-color: var(--cyan); }
+  .incident-item:hover {
+    background: rgba(255,255,255,0.06);
+    transform: translateX(2px);
+  }
+
+  .incident-type-badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .badge-fire { background: rgba(232,33,42,0.2); color: var(--red); border: 1px solid var(--red); }
+  .badge-rescue { background: rgba(0,212,255,0.15); color: var(--cyan); border: 1px solid var(--cyan); }
+
+  .incident-addr {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 3px;
+  }
+
+  .incident-time {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap { margin-bottom: 10px; }
+  .progress-label {
+    display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+  .progress-bar {
+    height: 6px; background: rgba(255,255,255,0.08);
+    border-radius: 3px; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 3px;
+    transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+  }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(4px);
+    display: none;
+    align-items: center; justify-content: center;
+  }
+
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--red);
+    border-radius: 14px;
+    width: 95vw;
+    max-width: 1100px;
+    max-height: 92vh;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6);
+    animation: slideUp 0.3s ease;
+  }
+
+  @keyframes slideUp {
+    from { opacity:0; transform:translateY(20px); }
+    to { opacity:1; transform:translateY(0); }
+  }
+
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .modal-title {
+    font-size: 14px; font-weight: 700; letter-spacing: 1px;
+    display: flex; align-items: center; gap: 10px;
+  }
+
+  .modal-title .red-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--red);
+    box-shadow: 0 0 8px var(--red-glow);
+  }
+
+  .btn-close {
+    background: none; border: none; cursor: pointer;
+    color: var(--text-muted); font-size: 20px;
+    line-height: 1; padding: 4px 8px; border-radius: 4px;
+  }
+  .btn-close:hover { color: var(--white); background: var(--glass); }
+
+  .modal-body {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    overflow: hidden;
+    flex: 1;
+  }
+
+  .modal-left, .modal-right {
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .modal-left {
+    border-right: 1px solid var(--border);
+    background: var(--navy);
+  }
+
+  .modal-left h4, .modal-right h4 {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  /* 원본 이미지 영역 */
+  #preview-image {
+    width: 100%; border-radius: 8px;
+    border: 1px solid var(--border);
+    display: none;
+  }
+
+  .upload-drop {
+    border: 2px dashed var(--border);
+    border-radius: 10px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: 200px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px;
+  }
+
+  .upload-drop:hover, .upload-drop.dragover {
+    border-color: var(--red);
+    background: rgba(232,33,42,0.05);
+  }
+
+  .upload-drop .icon { font-size: 36px; }
+  .upload-drop p { font-size: 13px; color: var(--text-muted); }
+  .upload-drop .hint { font-size: 11px; color: var(--text-muted); opacity: 0.6; }
+
+  #file-input { display: none; }
+
+  /* 분석 상태 */
+  .analyze-status {
+    display: none;
+    flex-direction: column; align-items: center;
+    gap: 12px; padding: 30px 0;
+  }
+
+  .spinner {
+    width: 40px; height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--red);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .analyze-status p { font-size: 12px; color: var(--text-muted); letter-spacing: 1px; }
+
+  /* ── FORM ── */
+  .form-section {
+    margin-bottom: 20px;
+  }
+
+  .form-section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--red);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(232,33,42,0.2);
+    text-transform: uppercase;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .form-grid.cols3 { grid-template-columns: 1fr 1fr 1fr; }
+
+  .form-group {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+
+  .form-group label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
+
+  .form-group input, .form-group textarea, .form-group select {
+    background: var(--navy);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 10px;
+    color: var(--white);
+    font-family: 'Noto Sans KR', sans-serif;
+    font-size: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus, .form-group textarea:focus {
+    outline: none;
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 2px rgba(0,212,255,0.1);
+  }
+
+  .form-group textarea { resize: vertical; min-height: 70px; }
+
+  .form-group.full { grid-column: 1 / -1; }
+
+  /* incident editor */
+  .incident-editor {
+    margin-bottom: 12px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+  }
+
+  .incident-editor-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 8px;
+  }
+
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+    background: var(--navy2);
+  }
+
+  /* ── TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    z-index: 9999;
+    display: none;
+  }
+
+  .toast-item {
+    background: var(--navy2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--green);
+    border-radius: 8px;
+    padding: 12px 18px;
+    font-size: 12px;
+    font-weight: 500;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    animation: slideInRight 0.3s ease;
+  }
+
+  @keyframes slideInRight {
+    from { opacity:0; transform:translateX(20px); }
+    to { opacity:1; transform:translateX(0); }
+  }
+
+  /* ── HISTORY LIST ── */
+  .history-list { display: flex; flex-direction: column; gap: 8px; }
+
+  .history-item {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .history-item:hover {
+    background: rgba(255,255,255,0.06);
+    border-color: var(--cyan);
+  }
+
+  .history-date { color: var(--cyan); font-weight: 700; }
+  .history-stats { color: var(--text-muted); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+  /* ── EQUIPMENT TABLE ── */
+  .equip-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+
+  .equip-item {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+  }
+
+  .equip-num { font-size: 20px; font-weight: 900; color: var(--gold); }
+  .equip-lbl { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── ANALYSIS TAG ── */
+  .analysis-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(0,200,117,0.12);
+    border: 1px solid rgba(0,200,117,0.3);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    color: var(--green);
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+
+  .damage-highlight {
+    color: var(--accent);
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="header-left">
+    <div class="logo-badge">119</div>
+    <div>
+      <div class="header-title">소방활동 일일 상황 관리시스템</div>
+      <div class="header-subtitle">춘천소방서 현장대응단</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-dot"></div>
+    <div class="date-display" id="current-date">2026. 3. 4. 수</div>
+    <button class="btn btn-outline" onclick="openHistoryModal()">📋 이력조회</button>
+    <button class="btn btn-primary" onclick="openUploadModal()">⚡ 보고서 입력</button>
+    <button class="btn btn-ghost" onclick="exportExcel()">📥 엑셀 저장</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── 섹션1: 일일 소방활동 통계 ── -->
+  <div class="section-label">
+    <div class="bar"></div>
+    <span>일일 소방활동</span>
+    <span class="tag">119 출동현황</span>
+  </div>
+
+  <div class="stats-grid" id="stats-grid">
+    <div class="stat-card total">
+      <div class="stat-label">총 출동건수</div>
+      <div class="stat-value" id="s-total">57</div>
+      <div class="stat-sub">
+        <span class="badge badge-cum">누계</span>
+        <span id="s-total-cum">601</span>건
+      </div>
+    </div>
+    <div class="stat-card fire">
+      <div class="stat-label">화재</div>
+      <div class="stat-value" id="s-fire">2</div>
+      <div class="stat-sub">
+        <span class="badge badge-cum">누계</span>
+        <span id="s-fire-cum">31</span>건
+      </div>
+    </div>
+    <div class="stat-card rescue">
+      <div class="stat-label">구조</div>
+      <div class="stat-value" id="s-rescue">3</div>
+      <div class="stat-sub">
+        인원 <strong id="s-rescue-person" style="color:var(--cyan);margin-left:4px;">2</strong>명
+      </div>
+    </div>
+    <div class="stat-card ems">
+      <div class="stat-label">구급</div>
+      <div class="stat-value" id="s-ems">48</div>
+      <div class="stat-sub">
+        인원 <strong id="s-ems-person" style="color:var(--green);margin-left:4px;">25</strong>명
+      </div>
+    </div>
+    <div class="stat-card other">
+      <div class="stat-label">기타</div>
+      <div class="stat-value" id="s-other">3</div>
+      <div class="stat-sub">예방경계 3건</div>
+    </div>
+    <div class="stat-card fire" style="--red:#FF6B35;">
+      <div class="stat-label" style="color:var(--text-muted)">피해 (당일)</div>
+      <div class="stat-value" style="color:var(--accent);font-size:20px;" id="s-damage">1,500만원</div>
+      <div class="stat-sub" style="color:var(--text-muted);font-size:10px;">누계 <span id="s-damage-cum">21,059만원</span></div>
+    </div>
+  </div>
+
+  <!-- ── 섹션2: 활동 상세 + 소방력 ── -->
+  <div class="two-col">
+
+    <!-- 출동 현황 테이블 -->
+    <div class="card">
+      <div class="card-title">
+        <span>출동 상세 현황</span>
+        <span style="font-size:10px;color:var(--red);" id="report-period">2026.3.3(화) 07:00 ~ 2026.3.4(수) 07:00</span>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>구분</th>
+            <th>화재(계)</th>
+            <th>화재(출동)</th>
+            <th>오인</th>
+            <th>구조(출동)</th>
+            <th>구조(인원)</th>
+            <th>구급(출동)</th>
+            <th>구급(인원)</th>
+            <th>기타</th>
+          </tr>
+        </thead>
+        <tbody id="activity-table-body">
+          <tr class="row-total">
+            <td>일계</td>
+            <td>2</td><td>2</td><td>1</td>
+            <td>3</td><td>2</td>
+            <td>48</td><td>25</td>
+            <td>3</td>
+          </tr>
+          <tr class="row-cum">
+            <td>누계</td>
+            <td>129</td><td>31</td><td>98</td>
+            <td>277</td><td>38</td>
+            <td>3,350</td><td>1,799</td>
+            <td>195</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div style="margin-top:16px;">
+        <div class="section-label" style="margin-bottom:8px;">
+          <div class="bar"></div>
+          <span style="font-size:11px;">화재피해 내역</span>
+        </div>
+        <div id="damage-detail" style="font-size:12px;color:var(--text-muted);line-height:1.8;">
+          총 <span class="damage-highlight">1,500만원</span> / 
+          우두동: 부동산 450만원, 동산 50만원 / 
+          운교동: 부동산 400만원, 동산 600만원
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div class="section-label" style="margin-bottom:8px;">
+          <div class="bar"></div>
+          <span style="font-size:11px;">화재예방조례 위반</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);">
+          금일 <strong id="violation-today" style="color:var(--gold);">0</strong>건 &nbsp;/&nbsp; 
+          누적 <strong id="violation-cum" style="color:var(--gold);">7</strong>건
+        </div>
+      </div>
+    </div>
+
+    <!-- 소방력 현황 -->
+    <div class="card">
+      <div class="card-title">
+        <span>금일 소방력 현황</span>
+        <span style="font-size:10px;color:var(--cyan);" id="force-date">2026. 3. 4. 수</span>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <div class="form-section-title" style="color:var(--cyan);">인력</div>
+        <div class="force-grid">
+          <div class="force-item">
+            <div class="force-num" id="f-total">117</div>
+            <div class="force-lbl">총 인원</div>
+          </div>
+          <div class="force-item">
+            <div class="force-num" id="f-day">75</div>
+            <div class="force-lbl">주간 현장</div>
+          </div>
+          <div class="force-item">
+            <div class="force-num" id="f-admin">42</div>
+            <div class="force-lbl">주간 행정</div>
+          </div>
+          <div class="force-item">
+            <div class="force-num" id="f-night">75</div>
+            <div class="force-lbl">야간 소계</div>
+          </div>
+          <div class="force-item">
+            <div class="force-num" id="f-night-field">74</div>
+            <div class="force-lbl">야간 현장</div>
+          </div>
+          <div class="force-item">
+            <div class="force-num" id="f-night-admin">1</div>
+            <div class="force-lbl">야간 행정</div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="form-section-title" style="color:var(--gold);">장비</div>
+        <div class="equip-grid">
+          <div class="equip-item">
+            <div class="equip-num" id="e-total">43</div>
+            <div class="equip-lbl">계</div>
+          </div>
+          <div class="equip-item">
+            <div class="equip-num" id="e-pump">10</div>
+            <div class="equip-lbl">펌프</div>
+          </div>
+          <div class="equip-item">
+            <div class="equip-num" id="e-tank">2</div>
+            <div class="equip-lbl">탱크</div>
+          </div>
+          <div class="equip-item">
+            <div class="equip-num" id="e-ems">8</div>
+            <div class="equip-lbl">구급</div>
+          </div>
+          <div class="equip-item">
+            <div class="equip-num" id="e-rescue">4</div>
+            <div class="equip-lbl">구조</div>
+          </div>
+          <div class="equip-item">
+            <div class="equip-num" id="e-other">19</div>
+            <div class="equip-lbl">기타</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;padding:10px 12px;background:var(--glass);border:1px solid var(--border);border-radius:8px;font-size:11px;color:var(--text-muted);line-height:1.7;">
+        <div><strong style="color:var(--white);">당직원:</strong> <span id="duty-officer">교. 박성근</span></div>
+        <div><strong style="color:var(--white);">근무자:</strong> <span id="duty-staff">현장대응단장 령. 엄재현 외 2팀 당번, 4조2교대 (주간4팀/야간3팀)</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 섹션3: 주요활동 처리 + 지도 ── -->
+  <div class="section-label">
+    <div class="bar"></div>
+    <span>주요 소방활동 처리</span>
+    <span class="tag">사건위치 시각화</span>
+  </div>
+
+  <div class="two-col" style="grid-template-columns:1.3fr 1fr;">
+    <!-- 카카오 지도 -->
+    <div>
+      <div id="kakao-map">
+        <div class="map-placeholder" id="map-placeholder">
+          <div class="map-icon">🗺️</div>
+          <p>카카오맵 API 키를 입력하면 사건 위치가 표시됩니다</p>
+          <div class="map-key-input">
+            <input type="text" id="kakao-api-key" placeholder="JavaScript 앱 키 입력 후 Enter">
+            <button class="btn btn-primary" onclick="initKakaoMap()">지도 열기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 사건 목록 -->
+    <div>
+      <div class="card" style="height:100%;">
+        <div class="card-title">
+          <span>사건 처리 현황</span>
+          <button class="btn btn-ghost" style="font-size:10px;padding:4px 10px;" onclick="openAddIncidentModal()">+ 추가</button>
+        </div>
+        <div class="incident-list" id="incident-list">
+          <!-- JS로 렌더 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 섹션4: 특이사항 ── -->
+  <div style="margin-top:24px;">
+    <div class="section-label">
+      <div class="bar"></div>
+      <span>기타 특이사항 / 언론보도</span>
+    </div>
+    <div class="card">
+      <div id="news-list" style="display:flex;flex-direction:column;gap:8px;">
+        <!-- JS 렌더 -->
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- ── 보고서 입력 모달 ── -->
+<div class="modal-overlay" id="upload-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <div class="red-dot"></div>
+        일일 상황보고서 자동 분석 · 입력
+        <span class="analysis-tag" id="ai-tag" style="display:none;">✦ AI 자동분석 완료</span>
+      </div>
+      <button class="btn-close" onclick="closeUploadModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <!-- 왼쪽: 원본 -->
+      <div class="modal-left">
+        <h4>원본 보고서</h4>
+
+        <!-- Puter.js OCR 안내 -->
+        <div style="margin-bottom:14px;background:rgba(0,200,117,0.06);border:1px solid rgba(0,200,117,0.25);border-radius:8px;padding:12px;">
+          <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--green);margin-bottom:4px;">✦ OCR 자동분석 — API 키 불필요</div>
+          <div style="font-size:11px;color:var(--text-muted);line-height:1.6;">
+            <b style="color:var(--white);">Puter.js</b> 무료 OCR 엔진을 사용합니다.<br>
+            이미지를 업로드하면 텍스트를 추출하여 자동으로 폼을 채웁니다.<br>
+            <span style="color:rgba(255,255,255,0.3);">※ 최초 실행 시 Puter 계정 팝업이 뜰 수 있습니다 (무료)</span>
+          </div>
+          <div id="ocr-status" style="font-size:10px;margin-top:6px;color:var(--text-muted);">
+            상태: <span id="proxy-dot" style="color:var(--green);">🟢 준비됨 — 이미지 업로드 가능</span>
+          </div>
+        </div>
+
+        <div class="upload-drop" id="upload-drop" onclick="document.getElementById('file-input').click()">
+          <div class="icon">📄</div>
+          <p>JPG 또는 PDF를 드래그하거나 클릭하여 업로드</p>
+          <p class="hint">AI가 자동으로 데이터를 추출합니다</p>
+        </div>
+        <input type="file" id="file-input" accept="image/*,.pdf">
+        <img id="preview-image" src="" alt="보고서 원본">
+        <div class="analyze-status" id="analyze-status">
+          <div class="spinner"></div>
+          <p id="analyze-text">AI 분석 중...</p>
+        </div>
+      </div>
+
+      <!-- 오른쪽: 입력 폼 -->
+      <div class="modal-right">
+        <h4>데이터 입력 · 수정</h4>
+
+        <div class="form-section">
+          <div class="form-section-title">기본 정보</div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>보고기간 시작</label>
+              <input type="text" id="f-period-start" value="2026. 3. 3. (화) 07:00">
+            </div>
+            <div class="form-group">
+              <label>보고기간 종료</label>
+              <input type="text" id="f-period-end" value="2026. 3. 4. (수) 07:00">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">화재 현황</div>
+          <div class="form-grid cols3">
+            <div class="form-group">
+              <label>화재(계)</label>
+              <input type="number" id="f-fire-total" value="2">
+            </div>
+            <div class="form-group">
+              <label>화재(출동)</label>
+              <input type="number" id="f-fire-dispatch" value="2">
+            </div>
+            <div class="form-group">
+              <label>오인</label>
+              <input type="number" id="f-fire-false" value="1">
+            </div>
+            <div class="form-group">
+              <label>사망</label>
+              <input type="number" id="f-fire-dead" value="0">
+            </div>
+            <div class="form-group">
+              <label>부상</label>
+              <input type="number" id="f-fire-injured" value="0">
+            </div>
+            <div class="form-group">
+              <label>피해(천원)</label>
+              <input type="number" id="f-fire-damage" value="15000">
+            </div>
+          </div>
+          <div class="form-group full" style="margin-top:8px;">
+            <label>피해 내역</label>
+            <textarea id="f-damage-detail">우두동(부동산 450만원, 동산 50만원), 운교동(부동산 400만원, 동산 600만원)</textarea>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">구조 · 구급</div>
+          <div class="form-grid cols3">
+            <div class="form-group">
+              <label>구조 출동</label>
+              <input type="number" id="f-rescue-dispatch" value="3">
+            </div>
+            <div class="form-group">
+              <label>구조 인원</label>
+              <input type="number" id="f-rescue-person" value="2">
+            </div>
+            <div class="form-group">
+              <label>기타 출동</label>
+              <input type="number" id="f-other-dispatch" value="3">
+            </div>
+            <div class="form-group">
+              <label>구급 출동</label>
+              <input type="number" id="f-ems-dispatch" value="48">
+            </div>
+            <div class="form-group">
+              <label>구급 인원</label>
+              <input type="number" id="f-ems-person" value="25">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">소방력 인력</div>
+          <div class="form-grid cols3">
+            <div class="form-group"><label>총 인원</label><input type="number" id="ff-total" value="117"></div>
+            <div class="form-group"><label>주간 현장</label><input type="number" id="ff-day-field" value="75"></div>
+            <div class="form-group"><label>주간 행정</label><input type="number" id="ff-day-admin" value="42"></div>
+            <div class="form-group"><label>야간 소계</label><input type="number" id="ff-night-total" value="75"></div>
+            <div class="form-group"><label>야간 현장</label><input type="number" id="ff-night-field" value="74"></div>
+            <div class="form-group"><label>야간 행정</label><input type="number" id="ff-night-admin" value="1"></div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">장비</div>
+          <div class="form-grid cols3">
+            <div class="form-group"><label>계</label><input type="number" id="fe-total" value="43"></div>
+            <div class="form-group"><label>펌프</label><input type="number" id="fe-pump" value="10"></div>
+            <div class="form-group"><label>탱크</label><input type="number" id="fe-tank" value="2"></div>
+            <div class="form-group"><label>구급</label><input type="number" id="fe-ems" value="8"></div>
+            <div class="form-group"><label>구조</label><input type="number" id="fe-rescue" value="4"></div>
+            <div class="form-group"><label>기타</label><input type="number" id="fe-other" value="19"></div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">주요 사건</div>
+          <div id="incidents-editor">
+            <!-- 동적 렌더 -->
+          </div>
+          <button class="btn btn-ghost" style="width:100%;margin-top:6px;" onclick="addIncidentField()">+ 사건 추가</button>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">특이사항 / 언론보도</div>
+          <div id="news-editor">
+            <!-- 동적 렌더 -->
+          </div>
+          <button class="btn btn-ghost" style="width:100%;margin-top:6px;" onclick="addNewsField()">+ 항목 추가</button>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">당직 정보</div>
+          <div class="form-grid">
+            <div class="form-group"><label>당직원</label><input type="text" id="fd-officer" value="교. 박성근"></div>
+            <div class="form-group full"><label>근무자</label><textarea id="fd-staff">현장대응단장 령. 엄재현 외 2팀 당번, 4조2교대 (주간4팀/야간3팀)</textarea></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeUploadModal()">취소</button>
+      <button class="btn btn-outline" onclick="fillSampleData()">샘플 데이터로 테스트</button>
+      <button class="btn btn-primary" onclick="saveReport()">💾 저장 및 대시보드 업데이트</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── 이력 조회 모달 ── -->
+<div class="modal-overlay" id="history-modal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-header">
+      <div class="modal-title">
+        <div class="red-dot"></div>
+        보고서 이력 조회
+      </div>
+      <button class="btn-close" onclick="closeHistoryModal()">✕</button>
+    </div>
+    <div style="padding:20px;overflow-y:auto;max-height:60vh;">
+      <div class="history-list" id="history-list"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeHistoryModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  DATA STORE
+// ══════════════════════════════════════════
+let reports = JSON.parse(localStorage.getItem('fire_reports') || '[]');
+
+// 최초 기본 데이터
+const defaultReport = {
+  id: Date.now(),
+  createdAt: '2026-03-04',
+  period: { start: '2026. 3. 3. (화) 07:00', end: '2026. 3. 4. (수) 07:00' },
+  activity: {
+    fire: { total:2, dispatch:2, false:1, dead:0, injured:0, damageKrw:15000 },
+    rescue: { dispatch:3, person:2 },
+    ems: { dispatch:48, person:25 },
+    other: { dispatch:3 },
+    cumulative: {
+      fire:{ total:129, dispatch:31, false:98, dead:1, injured:5, damageKrw:210590 },
+      rescue:{ dispatch:277, person:38 },
+      ems:{ dispatch:3350, person:1799 },
+      other:{ dispatch:195 }
+    }
+  },
+  damageDetail: '우두동(부동산 450만원, 동산 50만원), 운교동(부동산 400만원, 동산 600만원)',
+  violation: { today:0, cum:7 },
+  force: {
+    personnel: { total:117, dayField:75, dayAdmin:42, nightTotal:75, nightField:74, nightAdmin:1 },
+    equipment: { total:43, pump:10, tank:2, ems:8, rescue:4, other:19 }
+  },
+  incidents: [
+    {
+      type:'화재', address:'춘천시 우두동 1062-14',
+      lat:37.8813, lng:127.7312,
+      detail:'10:50~11:37 밖에서 화재경보기가 울리고 연기가 목격된다는 신고. 완진 후 고양이 1마리 사체 발견, 인명대피 2명 완료(남1, 여1).'
+    },
+    {
+      type:'화재', address:'춘천시 운교동 43-8',
+      lat:37.8765, lng:127.7245,
+      detail:'14:01~14:48 차에 불이났다는 신고. 차량화재 최성기 방수개시 후 완진. 노인복지센터 24명 대피(어르신16, 직원8). 넘어진 환자 1명 인성병원 이송.'
+    }
+  ],
+  news: [
+    { title:'춘천소방서 근속승진자 임명장 수여식', source:'강원일보' },
+    { title:'소방활동 안전사고 방지 업무 토론회', source:'연합뉴스' }
+  ],
+  duty: {
+    officer:'교. 박성근',
+    staff:'현장대응단장 령. 엄재현 외 2팀 당번, 4조2교대 (주간4팀/야간3팀)'
+  }
+};
+
+if (reports.length === 0) { reports.push(defaultReport); saveToStorage(); }
+
+let currentReport = reports[reports.length-1];
+
+function saveToStorage() {
+  localStorage.setItem('fire_reports', JSON.stringify(reports));
+}
+
+// ══════════════════════════════════════════
+//  DASHBOARD RENDER
+// ══════════════════════════════════════════
+function renderDashboard(r) {
+  const a = r.activity;
+  // 상단 통계
+  const total = a.fire.dispatch + a.rescue.dispatch + a.ems.dispatch + a.other.dispatch;
+  document.getElementById('s-total').textContent = total;
+  const cumTotal = a.cumulative.fire.dispatch + a.cumulative.rescue.dispatch + a.cumulative.ems.dispatch + a.cumulative.other.dispatch;
+  document.getElementById('s-total-cum').textContent = cumTotal.toLocaleString();
+  document.getElementById('s-fire').textContent = a.fire.dispatch;
+  document.getElementById('s-fire-cum').textContent = a.cumulative.fire.dispatch;
+  document.getElementById('s-rescue').textContent = a.rescue.dispatch;
+  document.getElementById('s-rescue-person').textContent = a.rescue.person;
+  document.getElementById('s-ems').textContent = a.ems.dispatch;
+  document.getElementById('s-ems-person').textContent = a.ems.person;
+  document.getElementById('s-other').textContent = a.other.dispatch;
+
+  const dmg = a.fire.damageKrw;
+  document.getElementById('s-damage').textContent = dmg >= 10000 ? (dmg/10000).toFixed(0)+'만원' : dmg+'천원';
+  const dmgCum = a.cumulative.fire.damageKrw;
+  document.getElementById('s-damage-cum').textContent = dmgCum.toLocaleString()+'천원';
+
+  // 기간
+  document.getElementById('report-period').textContent = r.period.start + ' ~ ' + r.period.end;
+  document.getElementById('force-date').textContent = r.period.end.split(' 07')[0];
+
+  // 테이블
+  const tbody = document.getElementById('activity-table-body');
+  tbody.innerHTML = `
+    <tr class="row-total">
+      <td>일계</td>
+      <td>${a.fire.total}</td><td>${a.fire.dispatch}</td><td>${a.fire.false}</td>
+      <td>${a.rescue.dispatch}</td><td>${a.rescue.person}</td>
+      <td>${a.ems.dispatch}</td><td>${a.ems.person}</td>
+      <td>${a.other.dispatch}</td>
+    </tr>
+    <tr class="row-cum">
+      <td>누계</td>
+      <td>${a.cumulative.fire.total}</td><td>${a.cumulative.fire.dispatch}</td><td>${a.cumulative.fire.false}</td>
+      <td>${a.cumulative.rescue.dispatch}</td><td>${a.cumulative.rescue.person}</td>
+      <td>${a.cumulative.ems.dispatch.toLocaleString()}</td><td>${a.cumulative.ems.person.toLocaleString()}</td>
+      <td>${a.cumulative.other.dispatch}</td>
+    </tr>`;
+
+  // 피해
+  document.getElementById('damage-detail').innerHTML =
+    '총 <span class="damage-highlight">' + (dmg >= 10000 ? (dmg/10000).toFixed(0)+'만원' : dmg+'천원') + '</span> / ' + (r.damageDetail || '');
+  document.getElementById('violation-today').textContent = r.violation.today;
+  document.getElementById('violation-cum').textContent = r.violation.cum;
+
+  // 소방력
+  const fp = r.force.personnel;
+  document.getElementById('f-total').textContent = fp.total;
+  document.getElementById('f-day').textContent = fp.dayField;
+  document.getElementById('f-admin').textContent = fp.dayAdmin;
+  document.getElementById('f-night').textContent = fp.nightTotal;
+  document.getElementById('f-night-field').textContent = fp.nightField;
+  document.getElementById('f-night-admin').textContent = fp.nightAdmin;
+
+  const fe = r.force.equipment;
+  document.getElementById('e-total').textContent = fe.total;
+  document.getElementById('e-pump').textContent = fe.pump;
+  document.getElementById('e-tank').textContent = fe.tank;
+  document.getElementById('e-ems').textContent = fe.ems;
+  document.getElementById('e-rescue').textContent = fe.rescue;
+  document.getElementById('e-other').textContent = fe.other;
+
+  document.getElementById('duty-officer').textContent = r.duty.officer;
+  document.getElementById('duty-staff').textContent = r.duty.staff;
+
+  // 사건 목록
+  renderIncidents(r.incidents);
+
+  // 뉴스
+  renderNews(r.news);
+}
+
+function renderIncidents(incidents) {
+  const el = document.getElementById('incident-list');
+  el.innerHTML = incidents.map((inc, i) => `
+    <div class="incident-item ${inc.type==='구조'?'rescue':''}" onclick="showIncidentDetail(${i})">
+      <span class="incident-type-badge ${inc.type==='화재'?'badge-fire':'badge-rescue'}">${inc.type}</span>
+      <div>
+        <div class="incident-addr">${inc.address}</div>
+        <div class="incident-time">${inc.detail.substring(0,60)}...</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderNews(news) {
+  const el = document.getElementById('news-list');
+  el.innerHTML = news.map(n => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--glass);border:1px solid var(--border);border-radius:8px;">
+      <span style="font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(245,166,35,0.15);color:var(--gold);border:1px solid rgba(245,166,35,0.3);white-space:nowrap;">${n.source}</span>
+      <span style="font-size:13px;font-weight:500;">${n.title}</span>
+    </div>
+  `).join('');
+}
+
+function showIncidentDetail(i) {
+  const inc = currentReport.incidents[i];
+  alert(`[${inc.type}] ${inc.address}\n\n${inc.detail}`);
+}
+
+// ══════════════════════════════════════════
+//  MODAL: 보고서 입력
+// ══════════════════════════════════════════
+let incidentCount = 0;
+let newsCount = 0;
+
+function openUploadModal() {
+  document.getElementById('upload-modal').classList.add('open');
+  renderIncidentsEditor(currentReport.incidents);
+  renderNewsEditor(currentReport.news);
+}
+
+function closeUploadModal() {
+  document.getElementById('upload-modal').classList.remove('open');
+}
+
+function renderIncidentsEditor(incidents) {
+  const el = document.getElementById('incidents-editor');
+  el.innerHTML = '';
+  incidentCount = 0;
+  incidents.forEach(inc => addIncidentField(inc));
+}
+
+function addIncidentField(inc) {
+  const i = incidentCount++;
+  const el = document.getElementById('incidents-editor');
+  const div = document.createElement('div');
+  div.className = 'incident-editor';
+  div.id = `inc-block-${i}`;
+  div.innerHTML = `
+    <div class="incident-editor-header">
+      <span style="font-size:11px;color:var(--text-muted);">사건 ${i+1}</span>
+      <button class="btn btn-ghost" style="padding:2px 8px;font-size:10px;" onclick="this.closest('.incident-editor').remove()">삭제</button>
+    </div>
+    <div class="form-grid cols3">
+      <div class="form-group">
+        <label>유형</label>
+        <select id="inc-type-${i}">
+          <option ${inc&&inc.type==='화재'?'selected':''}>화재</option>
+          <option ${inc&&inc.type==='구조'?'selected':''}>구조</option>
+          <option ${inc&&inc.type==='구급'?'selected':''}>구급</option>
+          <option ${inc&&inc.type==='기타'?'selected':''}>기타</option>
+        </select>
+      </div>
+      <div class="form-group" style="grid-column:span 2;">
+        <label>주소</label>
+        <input type="text" id="inc-addr-${i}" value="${inc?inc.address:''}">
+      </div>
+      <div class="form-group"><label>위도</label><input type="number" id="inc-lat-${i}" step="0.0001" value="${inc?inc.lat:'37.8813'}"></div>
+      <div class="form-group"><label>경도</label><input type="number" id="inc-lng-${i}" step="0.0001" value="${inc?inc.lng:'127.7312'}"></div>
+    </div>
+    <div class="form-group" style="margin-top:8px;">
+      <label>상세 내용</label>
+      <textarea id="inc-detail-${i}">${inc?inc.detail:''}</textarea>
+    </div>`;
+  el.appendChild(div);
+}
+
+function renderNewsEditor(news) {
+  const el = document.getElementById('news-editor');
+  el.innerHTML = '';
+  newsCount = 0;
+  news.forEach(n => addNewsField(n));
+}
+
+function addNewsField(n) {
+  const i = newsCount++;
+  const el = document.getElementById('news-editor');
+  const div = document.createElement('div');
+  div.className = 'incident-editor';
+  div.innerHTML = `
+    <div class="incident-editor-header">
+      <span style="font-size:11px;color:var(--text-muted);">언론보도 ${i+1}</span>
+      <button class="btn btn-ghost" style="padding:2px 8px;font-size:10px;" onclick="this.closest('.incident-editor').remove()">삭제</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group"><label>출처</label><input type="text" id="news-src-${i}" value="${n?n.source:''}"></div>
+      <div class="form-group"><label>제목</label><input type="text" id="news-title-${i}" value="${n?n.title:''}"></div>
+    </div>`;
+  el.appendChild(div);
+}
+
+// ── 파일 업로드 & AI 분석 ──
+const fileInput = document.getElementById('file-input');
+const uploadDrop = document.getElementById('upload-drop');
+
+uploadDrop.addEventListener('dragover', e => { e.preventDefault(); uploadDrop.classList.add('dragover'); });
+uploadDrop.addEventListener('dragleave', () => uploadDrop.classList.remove('dragover'));
+uploadDrop.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadDrop.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) handleFile(fileInput.files[0]);
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const preview = document.getElementById('preview-image');
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    uploadDrop.style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+  // Puter.js OCR은 File 객체 직접 사용
+  analyzeWithPuter(file);
+}
+
+// ══════════════════════════════════════════
+//  Puter.js OCR — API 키 불필요, 완전 무료
+// ══════════════════════════════════════════
+async function analyzeWithPuter(file) {
+  const statusEl = document.getElementById('analyze-status');
+  const textEl   = document.getElementById('analyze-text');
+  statusEl.style.display = 'flex';
+  textEl.textContent = 'Puter OCR 준비 중...';
+
+  // puter.js 동적 로드 (이미 로드된 경우 건너뜀)
+  if (!window.puter) {
+    await new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://js.puter.com/v2/';
+      s.onload = res;
+      s.onerror = () => rej(new Error('Puter.js 로드 실패'));
+      document.head.appendChild(s);
+    });
+  }
+
+  try {
+    textEl.textContent = '이미지 텍스트 추출 중...';
+    // puter.ai.img2txt → AWS Textract 기반 무료 OCR
+    const ocrText = await puter.ai.img2txt(file);
+
+    textEl.textContent = '추출된 텍스트 분석 중...';
+    const parsed = parseFireReport(ocrText);
+
+    fillFormFromData(parsed);
+    statusEl.style.display = 'none';
+    document.getElementById('ai-tag').style.display = 'inline-flex';
+    showToast('✦ OCR 자동 분석 완료! 값을 확인 후 수정하세요.');
+    console.log('[OCR 원문]', ocrText); // 디버그용
+  } catch(err) {
+    console.error(err);
+    statusEl.style.display = 'none';
+    showToast('⚠ OCR 실패: ' + err.message + ' — 수동 입력해 주세요.', 'warn');
+  }
+}
+
+// ══════════════════════════════════════════
+//  소방 보고서 텍스트 → 구조화 파서
+// ══════════════════════════════════════════
+function parseFireReport(text) {
+  const t = text || '';
+  const n = (str) => { const m = str.match(/\d[\d,]*/); return m ? parseInt(m[0].replace(/,/g,'')) : 0; };
+  const findNum = (patterns, src) => {
+    for (const p of patterns) {
+      const r = new RegExp(p + '[^\\d]*(\\d[\\d,]*)');
+      const m = src.match(r);
+      if (m) return parseInt(m[1].replace(/,/g,''));
+    }
+    return 0;
+  };
+
+  // ── 기간 ──
+  const periodM = t.match(/(\d{4}[.\s]+\d{1,2}[.\s]+\d{1,2}[.\s]*\([가-힣]\)[^~\n]*)/g) || [];
+  const periodStart = periodM[0] ? periodM[0].trim() : '';
+  const periodEnd   = periodM[1] ? periodM[1].trim() : '';
+
+  // ── 일계 행 숫자 파싱 (표 내 첫 번째 숫자 행) ──
+  // 일계 / 누계 행을 찾아서 순서대로 파싱
+  const rows = { daily: [], cum: [] };
+  const dailyM = t.match(/일\s*계[\s\S]{0,200}?\n/);
+  const cumM   = t.match(/누\s*계[\s\S]{0,200}?\n/);
+  if (dailyM) rows.daily = (dailyM[0].match(/\d[\d,]*/g) || []).map(x => parseInt(x.replace(/,/g,'')));
+  if (cumM)   rows.cum   = (cumM[0].match(/\d[\d,]*/g) || []).map(x => parseInt(x.replace(/,/g,'')));
+
+  const d = rows.daily, c = rows.cum;
+
+  // ── 화재 ──
+  const fire = {
+    total:    d[0] || findNum(['화재.*?계','화재출동'], t),
+    dispatch: d[1] || findNum(['출\\s*동'], t),
+    false:    d[2] || findNum(['오\\s*인'], t),
+    dead:     d[3] || findNum(['사\\s*망'], t),
+    injured:  d[4] || findNum(['부\\s*상'], t),
+    damageKrw: d[5] || findNum(['피해.*?원','\\d+,\\d{3}'], t)
+  };
+
+  // ── 구조 ──
+  const rescue = {
+    dispatch: d[6] || findNum(['구조.*?출동'], t),
+    person:   d[7] || findNum(['구조.*?인원'], t)
+  };
+
+  // ── 구급 ──
+  const ems = {
+    dispatch: d[8] || findNum(['구급.*?출동'], t),
+    person:   d[9] || findNum(['구급.*?인원'], t)
+  };
+
+  // ── 기타 ──
+  const other = { dispatch: d[10] || findNum(['기타.*?출동'], t) };
+
+  // ── 누계 ──
+  const cumulative = {
+    fire: {
+      total:    c[0] || 0, dispatch: c[1] || 0, false: c[2] || 0,
+      dead:     c[3] || 0, injured:  c[4] || 0, damageKrw: c[5] || 0
+    },
+    rescue: { dispatch: c[6] || 0, person: c[7] || 0 },
+    ems:    { dispatch: c[8] || 0, person: c[9] || 0 },
+    other:  { dispatch: c[10] || 0 }
+  };
+
+  // ── 피해내역 ──
+  const dmgM = t.match(/피해내역[^\n]*([\s\S]{0,200}?)(?=\n\n|\n[가-힣]|$)/);
+  const damageDetail = dmgM ? dmgM[0].replace(/피해내역/,'').trim() : '';
+
+  // ── 화재예방조례 위반 ──
+  const vTodayM = t.match(/금일\s*(\d+)\s*건/);
+  const vCumM   = t.match(/누적\s*(\d+)\s*건|누계\s*(\d+)\s*건/);
+
+  // ── 소방력 인력 ──
+  const forceM = t.match(/계[\s\S]{0,50}?(\d+)[\s\S]{0,100}?주간[\s\S]{0,30}?(\d+)[\s\S]{0,10}?(\d+)/);
+  const personnel = {
+    total:       findNum(['인력.*?계','소계.*?(\\d+)'], t) || (forceM ? parseInt(forceM[1]) : 0),
+    dayField:    findNum(['주간.*?현장'], t),
+    dayAdmin:    findNum(['주간.*?행정'], t),
+    nightTotal:  findNum(['야간.*?소계'], t),
+    nightField:  findNum(['야간.*?현장'], t),
+    nightAdmin:  findNum(['야간.*?행정'], t)
+  };
+
+  // ── 장비 ──
+  const equipment = {
+    total:  findNum(['장비.*?계'], t),
+    pump:   findNum(['펌프'], t),
+    tank:   findNum(['탱크'], t),
+    ems:    findNum(['구급'], t),
+    rescue: findNum(['구조'], t),
+    other:  findNum(['기타'], t)
+  };
+
+  // ── 주요사건 파싱 ──
+  const incidents = [];
+  // (화재) 또는 (구조) 패턴으로 사건 블록 분리
+  const incidentBlocks = t.match(/[○◯]\s*\([화재구조구급기타]+\)\s*[^\n]+[\s\S]{0,500}?(?=\n[○◯]|\n\n\n|금일 소방력|$)/g) || [];
+  incidentBlocks.forEach(block => {
+    const typeM   = block.match(/\(([화재구조구급기타]+)\)/);
+    const addrM   = block.match(/\)\s*([^\n]+)/);
+    incidents.push({
+      type:    typeM ? typeM[1] : '화재',
+      address: addrM ? addrM[1].trim() : '',
+      lat: 37.8813, lng: 127.7312,
+      detail: block.replace(/\n/g,' ').trim().substring(0, 300)
+    });
+  });
+
+  // ── 언론보도 ──
+  const news = [];
+  const newsBlocks = t.match(/[○◯]\s*[^\n]+\([가-힣]+보\)[^\n]*/g) || [];
+  newsBlocks.forEach(b => {
+    const srcM   = b.match(/\(([^)]+)\)/);
+    const titleM = b.match(/[○◯]\s*(.+?)\s*\(/);
+    news.push({
+      source: srcM ? srcM[1] : '',
+      title:  titleM ? titleM[1].trim() : b.trim()
+    });
+  });
+
+  // ── 당직 ──
+  const officerM = t.match(/당직원[^\n:：]*[：:]\s*([^\n]+)/);
+  const staffM   = t.match(/근무자[^\n:：]*[：:]\s*([^\n]+)/);
+
+  return {
+    period: { start: periodStart, end: periodEnd },
+    activity: { fire, rescue, ems, other, cumulative },
+    damageDetail,
+    violation: {
+      today: vTodayM ? parseInt(vTodayM[1]) : 0,
+      cum:   vCumM   ? parseInt(vCumM[1] || vCumM[2]) : 0
+    },
+    force: { personnel, equipment },
+    incidents: incidents.length ? incidents : [],
+    news: news.length ? news : [],
+    duty: {
+      officer: officerM ? officerM[1].trim() : '',
+      staff:   staffM   ? staffM[1].trim()   : ''
+    }
+  };
+}
+
+// ── 하위 호환 (API키 관련 함수 stub) ──
+function loadApiKey() {}
+// ── (구) 프록시 서버 상태 확인 — 미사용 ──
+
+function fillFormFromData(d) {
+  if (d.period) {
+    safeSet('f-period-start', d.period.start);
+    safeSet('f-period-end', d.period.end);
+  }
+  if (d.activity) {
+    const a = d.activity;
+    if (a.fire) {
+      safeSet('f-fire-total', a.fire.total);
+      safeSet('f-fire-dispatch', a.fire.dispatch);
+      safeSet('f-fire-false', a.fire.false);
+      safeSet('f-fire-dead', a.fire.dead);
+      safeSet('f-fire-injured', a.fire.injured);
+      safeSet('f-fire-damage', a.fire.damageKrw);
+    }
+    if (a.rescue) { safeSet('f-rescue-dispatch', a.rescue.dispatch); safeSet('f-rescue-person', a.rescue.person); }
+    if (a.ems) { safeSet('f-ems-dispatch', a.ems.dispatch); safeSet('f-ems-person', a.ems.person); }
+    if (a.other) safeSet('f-other-dispatch', a.other.dispatch);
+  }
+  if (d.damageDetail) safeSet('f-damage-detail', d.damageDetail);
+  if (d.violation) { safeSet('violation-today-input', d.violation.today); }
+  if (d.force) {
+    const fp = d.force.personnel || {};
+    safeSet('ff-total', fp.total); safeSet('ff-day-field', fp.dayField);
+    safeSet('ff-day-admin', fp.dayAdmin); safeSet('ff-night-total', fp.nightTotal);
+    safeSet('ff-night-field', fp.nightField); safeSet('ff-night-admin', fp.nightAdmin);
+    const fe = d.force.equipment || {};
+    safeSet('fe-total', fe.total); safeSet('fe-pump', fe.pump);
+    safeSet('fe-tank', fe.tank); safeSet('fe-ems', fe.ems);
+    safeSet('fe-rescue', fe.rescue); safeSet('fe-other', fe.other);
+  }
+  if (d.incidents && d.incidents.length) renderIncidentsEditor(d.incidents);
+  if (d.news && d.news.length) renderNewsEditor(d.news);
+  if (d.duty) { safeSet('fd-officer', d.duty.officer); safeSet('fd-staff', d.duty.staff); }
+}
+
+function safeSet(id, val) {
+  const el = document.getElementById(id);
+  if (el && val !== undefined && val !== null) el.value = val;
+}
+
+// ── 저장 ──
+function saveReport() {
+  const r = buildReportFromForm();
+  const idx = reports.findIndex(x => x.id === currentReport.id);
+  if (idx >= 0) reports[idx] = r; else reports.push(r);
+  currentReport = r;
+  saveToStorage();
+  renderDashboard(r);
+  closeUploadModal();
+  showToast('✅ 보고서 저장 완료!');
+}
+
+function buildReportFromForm() {
+  const incidents = collectIncidents();
+  const news = collectNews();
+  return {
+    id: currentReport.id || Date.now(),
+    createdAt: new Date().toISOString().split('T')[0],
+    period: { start: val('f-period-start'), end: val('f-period-end') },
+    activity: {
+      fire: { total:num('f-fire-total'), dispatch:num('f-fire-dispatch'), false:num('f-fire-false'), dead:num('f-fire-dead'), injured:num('f-fire-injured'), damageKrw:num('f-fire-damage') },
+      rescue: { dispatch:num('f-rescue-dispatch'), person:num('f-rescue-person') },
+      ems: { dispatch:num('f-ems-dispatch'), person:num('f-ems-person') },
+      other: { dispatch:num('f-other-dispatch') },
+      cumulative: currentReport.activity.cumulative
+    },
+    damageDetail: val('f-damage-detail'),
+    violation: { today: currentReport.violation.today, cum: currentReport.violation.cum },
+    force: {
+      personnel: { total:num('ff-total'), dayField:num('ff-day-field'), dayAdmin:num('ff-day-admin'), nightTotal:num('ff-night-total'), nightField:num('ff-night-field'), nightAdmin:num('ff-night-admin') },
+      equipment: { total:num('fe-total'), pump:num('fe-pump'), tank:num('fe-tank'), ems:num('fe-ems'), rescue:num('fe-rescue'), other:num('fe-other') }
+    },
+    incidents,
+    news,
+    duty: { officer: val('fd-officer'), staff: val('fd-staff') }
+  };
+}
+
+function collectIncidents() {
+  const editors = document.querySelectorAll('#incidents-editor .incident-editor');
+  const out = [];
+  editors.forEach((ed, i) => {
+    const addr = ed.querySelector(`[id^="inc-addr-"]`);
+    if (!addr) return;
+    const id = addr.id.split('-')[2];
+    out.push({
+      type: document.getElementById(`inc-type-${id}`)?.value || '화재',
+      address: document.getElementById(`inc-addr-${id}`)?.value || '',
+      lat: parseFloat(document.getElementById(`inc-lat-${id}`)?.value || 37.88),
+      lng: parseFloat(document.getElementById(`inc-lng-${id}`)?.value || 127.73),
+      detail: document.getElementById(`inc-detail-${id}`)?.value || ''
+    });
+  });
+  return out;
+}
+
+function collectNews() {
+  const editors = document.querySelectorAll('#news-editor .incident-editor');
+  const out = [];
+  editors.forEach(ed => {
+    const srcEl = ed.querySelector(`[id^="news-src-"]`);
+    if (!srcEl) return;
+    const id = srcEl.id.split('-')[2];
+    out.push({
+      source: document.getElementById(`news-src-${id}`)?.value || '',
+      title: document.getElementById(`news-title-${id}`)?.value || ''
+    });
+  });
+  return out;
+}
+
+function val(id) { return document.getElementById(id)?.value || ''; }
+function num(id) { return parseInt(document.getElementById(id)?.value || 0) || 0; }
+
+function fillSampleData() {
+  fillFormFromData(defaultReport);
+  renderIncidentsEditor(defaultReport.incidents);
+  renderNewsEditor(defaultReport.news);
+  showToast('📋 샘플 데이터 로드 완료');
+}
+
+// ══════════════════════════════════════════
+//  HISTORY MODAL
+// ══════════════════════════════════════════
+function openHistoryModal() {
+  const el = document.getElementById('history-list');
+  if (reports.length === 0) {
+    el.innerHTML = '<div style="color:var(--text-muted);text-align:center;padding:20px;">저장된 보고서가 없습니다</div>';
+  } else {
+    el.innerHTML = [...reports].reverse().map(r => `
+      <div class="history-item" onclick="loadReport('${r.id}')">
+        <span class="history-date">${r.createdAt}</span>
+        <span class="history-stats">
+          화재 ${r.activity.fire.dispatch}건 · 구조 ${r.activity.rescue.dispatch}건 · 구급 ${r.activity.ems.dispatch}건
+        </span>
+        <span style="font-size:10px;color:var(--text-muted);">▶ 불러오기</span>
+      </div>
+    `).join('');
+  }
+  document.getElementById('history-modal').classList.add('open');
+}
+
+function closeHistoryModal() { document.getElementById('history-modal').classList.remove('open'); }
+
+function loadReport(id) {
+  const r = reports.find(x => String(x.id) === String(id));
+  if (r) {
+    currentReport = r;
+    renderDashboard(r);
+    closeHistoryModal();
+    showToast('📋 보고서 불러오기 완료');
+  }
+}
+
+// ══════════════════════════════════════════
+//  KAKAO MAP
+// ══════════════════════════════════════════
+let mapInitialized = false;
+let kakaoMap = null;
+
+function initKakaoMap() {
+  const key = document.getElementById('kakao-api-key').value.trim();
+  if (!key) { showToast('API 키를 입력해주세요', 'warn'); return; }
+
+  const script = document.createElement('script');
+  script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false`;
+  script.onload = () => {
+    window.kakao.maps.load(() => {
+      document.getElementById('map-placeholder').style.display = 'none';
+      const mapEl = document.getElementById('kakao-map');
+      const options = { center: new kakao.maps.LatLng(37.8813, 127.7312), level: 5 };
+      kakaoMap = new kakao.maps.Map(mapEl, options);
+      mapInitialized = true;
+      addMarkersToMap(currentReport.incidents);
+    });
+  };
+  script.onerror = () => showToast('카카오맵 로드 실패. API 키를 확인하세요.', 'warn');
+  document.head.appendChild(script);
+}
+
+function addMarkersToMap(incidents) {
+  if (!mapInitialized || !kakaoMap) return;
+  incidents.forEach(inc => {
+    if (!inc.lat || !inc.lng) return;
+    const pos = new kakao.maps.LatLng(inc.lat, inc.lng);
+    const marker = new kakao.maps.Marker({ position: pos, map: kakaoMap });
+    const info = new kakao.maps.InfoWindow({
+      content: `<div style="padding:8px 12px;font-size:12px;font-weight:600;color:#333;">[${inc.type}] ${inc.address}</div>`
+    });
+    kakao.maps.event.addListener(marker, 'click', () => info.open(kakaoMap, marker));
+  });
+}
+
+// ══════════════════════════════════════════
+//  EXCEL EXPORT
+// ══════════════════════════════════════════
+function exportExcel() {
+  const r = currentReport;
+  const a = r.activity;
+
+  const wb = XLSX.utils.book_new();
+
+  // 일일 소방활동 시트
+  const actData = [
+    ['구분','화재(계)','화재(출동)','오인','사망','부상','피해(천원)','구조(출동)','구조(인원)','구급(출동)','구급(인원)','기타'],
+    ['일계', a.fire.total, a.fire.dispatch, a.fire.false, a.fire.dead, a.fire.injured, a.fire.damageKrw, a.rescue.dispatch, a.rescue.person, a.ems.dispatch, a.ems.person, a.other.dispatch],
+    ['누계', a.cumulative.fire.total, a.cumulative.fire.dispatch, a.cumulative.fire.false, a.cumulative.fire.dead, a.cumulative.fire.injured, a.cumulative.fire.damageKrw, a.cumulative.rescue.dispatch, a.cumulative.rescue.person, a.cumulative.ems.dispatch, a.cumulative.ems.person, a.cumulative.other.dispatch]
+  ];
+  const ws1 = XLSX.utils.aoa_to_sheet(actData);
+  XLSX.utils.book_append_sheet(wb, ws1, '소방활동');
+
+  // 소방력 시트
+  const forceData = [
+    ['구분','총인원','주간현장','주간행정','야간소계','야간현장','야간행정','장비계','펌프','탱크','구급','구조','기타'],
+    ['금일', r.force.personnel.total, r.force.personnel.dayField, r.force.personnel.dayAdmin, r.force.personnel.nightTotal, r.force.personnel.nightField, r.force.personnel.nightAdmin, r.force.equipment.total, r.force.equipment.pump, r.force.equipment.tank, r.force.equipment.ems, r.force.equipment.rescue, r.force.equipment.other]
+  ];
+  const ws2 = XLSX.utils.aoa_to_sheet(forceData);
+  XLSX.utils.book_append_sheet(wb, ws2, '소방력');
+
+  // 사건 시트
+  const incData = [['유형','주소','위도','경도','내용']];
+  r.incidents.forEach(i => incData.push([i.type, i.address, i.lat, i.lng, i.detail]));
+  const ws3 = XLSX.utils.aoa_to_sheet(incData);
+  XLSX.utils.book_append_sheet(wb, ws3, '주요사건');
+
+  XLSX.writeFile(wb, `소방활동_${r.createdAt}.xlsx`);
+  showToast('📥 엑셀 파일 저장 완료');
+}
+
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+function showToast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="toast-item" style="border-left-color:${type==='warn'?'var(--gold)':'var(--green)'}">${msg}</div>`;
+  setTimeout(() => { el.style.display='none'; }, 3000);
+}
+
+// ══════════════════════════════════════════
+//  CLOCK
+// ══════════════════════════════════════════
+function updateClock() {
+  const days = ['일','월','화','수','목','금','토'];
+  const now = new Date();
+  const str = `${now.getFullYear()}. ${now.getMonth()+1}. ${now.getDate()}. ${days[now.getDay()]}  ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('current-date').textContent = str;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+renderDashboard(currentReport);
+
+// 보고서 모달 열기 버튼
+document.querySelector('button[onclick="openUploadModal()"]')
+  .addEventListener('click', () => { /* Puter.js — 별도 초기화 불필요 */ });
+</script>
+</body>
+</html>
