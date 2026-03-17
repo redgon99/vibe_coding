@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔥 출석 확인 | 소방서 출석관리</title>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --red-primary: #D32F2F;
+      --red-dark: #B71C1C;
+      --red-light: #EF5350;
+      --red-ultra-light: #FFEBEE;
+      --white: #FFFFFF;
+      --gray-50: #FAFAFA;
+      --gray-100: #F5F5F5;
+      --gray-200: #EEEEEE;
+      --gray-300: #E0E0E0;
+      --gray-400: #BDBDBD;
+      --gray-500: #9E9E9E;
+      --gray-600: #757575;
+      --gray-700: #616161;
+      --gray-800: #424242;
+      --gray-900: #212121;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: linear-gradient(160deg, #B71C1C 0%, #D32F2F 40%, #EF5350 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    /* Background decoration */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -50%;
+      right: -30%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(255,255,255,0.06) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -30%;
+      left: -20%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(0,0,0,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    /* ===== HEADER ===== */
+    .top-bar {
+      width: 100%;
+      padding: 16px 20px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+      z-index: 10;
+    }
+
+    .top-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.9);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .top-logo-icon {
+      width: 32px;
+      height: 32px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    /* ===== MAIN CARD ===== */
+    .main-card {
+      background: var(--white);
+      border-radius: 28px 28px 0 0;
+      width: 100%;
+      max-width: 480px;
+      flex: 1;
+      margin-top: 8px;
+      padding: 28px 24px 40px;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.2);
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Pull handle */
+    .pull-handle {
+      width: 40px;
+      height: 4px;
+      background: var(--gray-300);
+      border-radius: 2px;
+      margin: 0 auto -4px;
+    }
+
+    /* ===== SESSION INFO ===== */
+    .session-info-card {
+      background: var(--red-ultra-light);
+      border-radius: 14px;
+      padding: 16px;
+      border-left: 4px solid var(--red-primary);
+    }
+
+    .session-info-card.loading {
+      background: var(--gray-100);
+      border-left-color: var(--gray-300);
+    }
+
+    .session-info-card.error-state {
+      background: #FFF8E1;
+      border-left-color: #F57F17;
+    }
+
+    .session-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--red-primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .session-label.loading { color: var(--gray-400); }
+    .session-label.error-state { color: #F57F17; }
+
+    .session-name-big {
+      font-size: 20px;
+      font-weight: 900;
+      color: var(--gray-900);
+      line-height: 1.2;
+      margin-bottom: 6px;
+    }
+
+    .session-date-info {
+      font-size: 13px;
+      color: var(--gray-600);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ===== FORM ===== */
+    .form-section-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gray-800);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: -8px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 2px solid var(--gray-200);
+      border-radius: 12px;
+      font-size: 15px;
+      font-family: 'Noto Sans KR', sans-serif;
+      color: var(--gray-900);
+      transition: all 0.2s;
+      outline: none;
+      background: var(--white);
+      -webkit-appearance: none;
+    }
+
+    .form-input:focus {
+      border-color: var(--red-primary);
+      box-shadow: 0 0 0 4px rgba(211,47,47,0.1);
+    }
+
+    .form-input.error {
+      border-color: #FF5252;
+      background: #FFF8F8;
+    }
+
+    .form-input::placeholder {
+      color: var(--gray-400);
+    }
+
+    .error-msg {
+      font-size: 12px;
+      color: #FF5252;
+      display: none;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .error-msg.show {
+      display: flex;
+    }
+
+    /* ===== DEPT BUTTONS ===== */
+    .dept-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .dept-btn {
+      padding: 10px 4px;
+      border: 2px solid var(--gray-200);
+      border-radius: 10px;
+      background: var(--white);
+      font-size: 12px;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-weight: 600;
+      color: var(--gray-700);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .dept-btn:hover {
+      border-color: var(--red-light);
+      background: var(--red-ultra-light);
+      color: var(--red-primary);
+    }
+
+    .dept-btn.selected {
+      border-color: var(--red-primary);
+      background: var(--red-primary);
+      color: white;
+      box-shadow: 0 2px 8px rgba(211,47,47,0.3);
+    }
+
+    .dept-input-toggle {
+      font-size: 12px;
+      color: var(--red-primary);
+      text-decoration: underline;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: 'Noto Sans KR', sans-serif;
+      padding: 4px 0;
+      display: block;
+      margin-top: 4px;
+    }
+
+    /* ===== SUBMIT BUTTON ===== */
+    .btn-submit {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, var(--red-primary), var(--red-dark));
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: 'Noto Sans KR', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 16px rgba(211,47,47,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(211,47,47,0.5);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    .btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      transform: scale(0);
+      animation: ripple 0.6s linear;
+      pointer-events: none;
+    }
+
+    @keyframes ripple {
+      to { transform: scale(4); opacity: 0; }
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ===== SUCCESS OVERLAY ===== */
+    .success-overlay {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(160deg, #1B5E20 0%, #2E7D32 50%, #388E3C 100%);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      transform: translateY(100%);
+      transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      text-align: center;
+      padding: 40px;
+    }
+
+    .success-overlay.show {
+      transform: translateY(0);
+    }
+
+    .success-icon-wrap {
+      width: 100px;
+      height: 100px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 8px;
+      animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s both;
+    }
+
+    @keyframes popIn {
+      from { transform: scale(0); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .success-icon {
+      font-size: 50px;
+      color: white;
+    }
+
+    .success-title {
+      font-size: 28px;
+      font-weight: 900;
+      color: white;
+      animation: fadeUp 0.4s ease 0.5s both;
+    }
+
+    .success-sub {
+      font-size: 15px;
+      color: rgba(255,255,255,0.85);
+      animation: fadeUp 0.4s ease 0.6s both;
+    }
+
+    .success-info {
+      background: rgba(255,255,255,0.15);
+      border-radius: 14px;
+      padding: 16px 24px;
+      animation: fadeUp 0.4s ease 0.7s both;
+    }
+
+    .success-info-name {
+      font-size: 22px;
+      font-weight: 900;
+      color: white;
+      margin-bottom: 4px;
+    }
+
+    .success-info-dept {
+      font-size: 15px;
+      color: rgba(255,255,255,0.8);
+    }
+
+    .success-time {
+      font-size: 13px;
+      color: rgba(255,255,255,0.6);
+      animation: fadeUp 0.4s ease 0.8s both;
+    }
+
+    .btn-back {
+      background: rgba(255,255,255,0.2);
+      border: 2px solid rgba(255,255,255,0.4);
+      color: white;
+      border-radius: 12px;
+      padding: 12px 28px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'Noto Sans KR', sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 8px;
+      animation: fadeUp 0.4s ease 0.9s both;
+    }
+
+    .btn-back:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ===== ERROR OVERLAY ===== */
+    .error-overlay {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(160deg, #E65100 0%, #FF6F00 100%);
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      transform: translateY(100%);
+      transition: transform 0.4s ease;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .error-overlay.show {
+      transform: translateY(0);
+    }
+
+    .error-overlay .icon { font-size: 60px; margin-bottom: 8px; }
+    .error-overlay .title { font-size: 22px; font-weight: 900; color: white; }
+    .error-overlay .sub { font-size: 14px; color: rgba(255,255,255,0.8); line-height: 1.5; }
+
+    /* ===== ALREADY ATTENDED ===== */
+    .already-card {
+      background: #FFF8E1;
+      border: 2px solid #FFC107;
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #E65100;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .already-card.show {
+      display: flex;
+    }
+
+    /* ===== NOTICE ===== */
+    .notice-row {
+      background: var(--gray-50);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 12px;
+      color: var(--gray-500);
+      line-height: 1.5;
+    }
+
+    /* ===== LOADING STATE ===== */
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: skeleton 1.5s infinite;
+      border-radius: 6px;
+      height: 16px;
+    }
+
+    @keyframes skeleton {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ===== PAGE NOT FOUND ===== */
+    .not-found {
+      text-align: center;
+      padding: 40px 20px;
+      display: none;
+    }
+
+    .not-found .icon {
+      font-size: 60px;
+      display: block;
+      margin-bottom: 12px;
+      color: var(--gray-400);
+    }
+
+    .not-found .title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--gray-700);
+      margin-bottom: 6px;
+    }
+
+    .not-found .sub {
+      font-size: 13px;
+      color: var(--gray-500);
+      line-height: 1.5;
+    }
+
+    /* ===== ATTENDANCE COUNT ===== */
+    .count-badge {
+      background: white;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12px;
+      color: var(--red-primary);
+      font-weight: 700;
+      margin-left: auto;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-thumb {
+      background: var(--gray-300);
+      border-radius: 2px;
+    }
+
+    /* ===== DEPT PRESET LIST ===== */
+    .dept-preset-label {
+      font-size: 11px;
+      color: var(--gray-500);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 400px) {
+      .main-card {
+        padding: 24px 16px 40px;
+      }
+      .dept-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <div class="top-logo">
+      <div class="top-logo-icon">🔥</div>
+      <span>소방서 출석관리 시스템</span>
+    </div>
+  </div>
+
+  <!-- Main Card -->
+  <div class="main-card">
+    <div class="pull-handle"></div>
+
+    <!-- Session Info -->
+    <div class="session-info-card loading" id="sessionInfoCard">
+      <div class="session-label loading" id="sessionLabel">
+        <div class="skeleton" style="width:80px;"></div>
+      </div>
+      <div class="session-name-big" id="sessionNameDisplay">
+        <div class="skeleton" style="height:24px;width:200px;margin-bottom:8px;"></div>
+      </div>
+      <div class="session-date-info" id="sessionDateDisplay">
+        <div class="skeleton" style="width:140px;height:14px;"></div>
+      </div>
+    </div>
+
+    <!-- Not Found State -->
+    <div class="not-found" id="notFoundState">
+      <i class="fa-solid fa-circle-exclamation icon"></i>
+      <div class="title">세션을 찾을 수 없습니다</div>
+      <div class="sub">올바른 QR코드를 스캔했는지 확인해주세요.<br>또는 관리자에게 문의하세요.</div>
+    </div>
+
+    <!-- Attendance Form (shown after session loads) -->
+    <div id="attendanceForm" style="display:none;display:flex;flex-direction:column;gap:16px;">
+
+      <!-- Already attended warning -->
+      <div class="already-card" id="alreadyCard">
+        <i class="fa-solid fa-triangle-exclamation" style="flex-shrink:0;"></i>
+        <span>이미 출석이 등록된 인원이 있습니다. 이름이 동일한지 확인해주세요.</span>
+      </div>
+
+      <!-- Name Input -->
+      <div class="form-group">
+        <label class="form-label" for="inputName">
+          <i class="fa-solid fa-user" style="color:var(--red-primary);margin-right:4px;"></i>
+          이름 <span style="color:var(--red-primary)">*</span>
+        </label>
+        <input
+          type="text"
+          class="form-input"
+          id="inputName"
+          placeholder="성함을 입력해주세요"
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        />
+        <div class="error-msg" id="nameError">
+          <i class="fa-solid fa-circle-exclamation"></i> 이름을 입력해주세요
+        </div>
+      </div>
+
+      <!-- Department Input -->
+      <div class="form-group">
+        <label class="form-label">
+          <i class="fa-solid fa-building" style="color:var(--red-primary);margin-right:4px;"></i>
+          부서 <span style="color:var(--red-primary)">*</span>
+        </label>
+
+        <!-- Preset Dept Buttons -->
+        <div id="deptPresetSection">
+          <div class="dept-preset-label">빠른 선택</div>
+          <div class="dept-grid" id="deptGrid">
+            <button class="dept-btn" onclick="selectDept(this, '진압대')">🚒 진압대</button>
+            <button class="dept-btn" onclick="selectDept(this, '구조대')">🪝 구조대</button>
+            <button class="dept-btn" onclick="selectDept(this, '구급대')">🚑 구급대</button>
+            <button class="dept-btn" onclick="selectDept(this, '행정팀')">📋 행정팀</button>
+            <button class="dept-btn" onclick="selectDept(this, '예방팀')">🛡️ 예방팀</button>
+            <button class="dept-btn" onclick="selectDept(this, '현장대')">🔥 현장대</button>
+            <button class="dept-btn" onclick="selectDept(this, '지휘팀')">⭐ 지휘팀</button>
+            <button class="dept-btn" onclick="selectDept(this, '통신팀')">📡 통신팀</button>
+            <button class="dept-btn" onclick="selectDept(this, '교육팀')">📚 교육팀</button>
+          </div>
+          <button class="dept-input-toggle" onclick="toggleDeptInput()" id="deptToggleBtn">
+            직접 입력하기 →
+          </button>
+        </div>
+
+        <!-- Direct Input (hidden by default) -->
+        <div id="deptInputSection" style="display:none;">
+          <input
+            type="text"
+            class="form-input"
+            id="inputDept"
+            placeholder="부서명을 직접 입력해주세요"
+            maxlength="30"
+            autocomplete="off"
+          />
+          <button class="dept-input-toggle" onclick="toggleDeptInput()" id="deptPresetBtn">
+            ← 빠른 선택으로 돌아가기
+          </button>
+        </div>
+
+        <div class="error-msg" id="deptError">
+          <i class="fa-solid fa-circle-exclamation"></i> 부서를 선택하거나 입력해주세요
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <button class="btn-submit" id="submitBtn" onclick="submitAttendance(event)">
+        <i class="fa-solid fa-clipboard-check"></i>
+        출석 확인
+      </button>
+
+      <!-- Notice -->
+      <div class="notice-row">
+        <i class="fa-solid fa-circle-info" style="color:var(--gray-400);margin-right:4px;"></i>
+        출석 등록 후 수정이 어려우니 정확한 이름과 부서를 입력해주세요.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ===== SUCCESS OVERLAY ===== -->
+  <div class="success-overlay" id="successOverlay">
+    <div class="success-icon-wrap">
+      <i class="fa-solid fa-check success-icon"></i>
+    </div>
+    <div class="success-title">출석 완료! 🎉</div>
+    <div class="success-sub">출석이 성공적으로 등록되었습니다</div>
+    <div class="success-info">
+      <div class="success-info-name" id="successName"></div>
+      <div class="success-info-dept" id="successDept"></div>
+    </div>
+    <div class="success-time" id="successTime"></div>
+    <button class="btn-back" onclick="goBack()">
+      <i class="fa-solid fa-rotate-left"></i> 다른 사람 출석하기
+    </button>
+  </div>
+
+  <!-- ===== ERROR OVERLAY ===== -->
+  <div class="error-overlay" id="errorOverlay">
+    <div class="icon">⚠️</div>
+    <div class="title" id="errorTitle">오류가 발생했습니다</div>
+    <div class="sub" id="errorSub">잠시 후 다시 시도해주세요</div>
+    <button class="btn-back" onclick="closeErrorOverlay()" style="background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.4);color:white;border-radius:12px;padding:12px 28px;font-size:14px;font-weight:600;font-family:'Noto Sans KR',sans-serif;cursor:pointer;margin-top:8px;">
+      다시 시도
+    </button>
+  </div>
+
+<script>
+// =========================================================
+// CONSTANTS & STATE
+// =========================================================
+const STORAGE_KEY_URL = 'sb_url';
+const STORAGE_KEY_KEY = 'sb_key';
+
+let supabaseClient = null;
+let currentSession = null;
+let selectedDept = '';
+let isDirectDeptInput = false;
+
+// =========================================================
+// INIT
+// =========================================================
+window.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get('session');
+
+  if (!sessionId) {
+    showNotFound('세션 ID가 없습니다. 올바른 QR코드를 스캔해주세요.');
+    return;
+  }
+
+  // Init Supabase
+  const url = localStorage.getItem(STORAGE_KEY_URL);
+  const key = localStorage.getItem(STORAGE_KEY_KEY);
+
+  if (!url || !key) {
+    // 같은 도메인의 index.html에서 DB 설정이 필요함을 안내
+    showNotFound(
+      'DB 연결 정보가 없습니다.\n' +
+      '관리자가 같은 기기에서 먼저 index.html을 열고\n' +
+      'DB 설정(Supabase URL + Key)을 저장해야 합니다.'
+    );
+    return;
+  }
+
+  try {
+    supabaseClient = window.supabase.createClient(url, key, {
+      auth: { persistSession: false }
+    });
+  } catch (e) {
+    showNotFound('DB 클라이언트 생성 실패: ' + e.message);
+    return;
+  }
+
+  // Load session
+  await loadSession(sessionId);
+});
+
+// =========================================================
+// SESSION LOADING
+// =========================================================
+async function loadSession(sessionId) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .single();
+
+    if (error) {
+      console.error('loadSession DB error:', error);
+      if (error.code === 'PGRST116') {
+        showNotFound('해당 교육 세션을 찾을 수 없습니다.\nQR코드가 만료되었거나 삭제된 세션입니다.');
+      } else if (error.code === '42P01') {
+        showNotFound('sessions 테이블이 없습니다.\n관리자 페이지에서 SQL을 실행해 테이블을 생성해주세요.');
+      } else {
+        showNotFound('세션 로드 오류: ' + error.message);
+      }
+      return;
+    }
+
+    if (!data) {
+      showNotFound('해당 교육 세션을 찾을 수 없습니다.');
+      return;
+    }
+
+    currentSession = data;
+    renderSessionInfo(data);
+    showForm();
+
+  } catch (e) {
+    console.error('loadSession error:', e);
+    const msg = e.message?.includes('Failed to fetch')
+      ? 'DB 서버에 연결할 수 없습니다. 네트워크를 확인해주세요.'
+      : '세션 정보를 불러오는 데 실패했습니다: ' + e.message;
+    showNotFound(msg);
+  }
+}
+
+function renderSessionInfo(session) {
+  const card = document.getElementById('sessionInfoCard');
+  card.className = 'session-info-card';
+
+  document.getElementById('sessionLabel').className = 'session-label';
+  document.getElementById('sessionLabel').innerHTML = `
+    <i class="fa-solid fa-fire-flame-curved"></i> 교육 출석 등록
+  `;
+
+  document.getElementById('sessionNameDisplay').textContent = session.name;
+
+  const dateStr = formatDate(session.date);
+  document.getElementById('sessionDateDisplay').innerHTML = `
+    <i class="fa-solid fa-calendar-check" style="color:var(--red-primary)"></i>
+    ${dateStr}
+    ${session.description ? `&nbsp;·&nbsp; ${session.description}` : ''}
+  `;
+}
+
+function showNotFound(msg) {
+  const card = document.getElementById('sessionInfoCard');
+  card.className = 'session-info-card error-state';
+  document.getElementById('sessionLabel').className = 'session-label error-state';
+  document.getElementById('sessionLabel').textContent = '⚠️ 오류';
+  document.getElementById('sessionNameDisplay').textContent = '세션 없음';
+  document.getElementById('sessionDateDisplay').textContent = msg;
+
+  document.getElementById('notFoundState').style.display = 'block';
+  document.getElementById('attendanceForm').style.display = 'none';
+}
+
+function showForm() {
+  document.getElementById('attendanceForm').style.display = 'flex';
+  document.getElementById('attendanceForm').style.flexDirection = 'column';
+  document.getElementById('attendanceForm').style.gap = '16px';
+
+  // Focus name input after short delay
+  setTimeout(() => {
+    document.getElementById('inputName').focus();
+  }, 400);
+}
+
+// =========================================================
+// DEPT SELECTION
+// =========================================================
+function selectDept(btn, deptName) {
+  // Toggle selection
+  document.querySelectorAll('.dept-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedDept = deptName;
+
+  // Clear error
+  document.getElementById('deptError').classList.remove('show');
+  document.getElementById('deptGrid').style.borderColor = '';
+}
+
+function toggleDeptInput() {
+  isDirectDeptInput = !isDirectDeptInput;
+
+  if (isDirectDeptInput) {
+    document.getElementById('deptPresetSection').querySelector('.dept-grid').style.display = 'grid';
+    document.getElementById('deptPresetSection').querySelector('.dept-grid').style.opacity = '0.3';
+    document.getElementById('deptPresetSection').querySelector('.dept-grid').style.pointerEvents = 'none';
+    document.getElementById('deptInputSection').style.display = 'block';
+    document.getElementById('inputDept').focus();
+    selectedDept = '';
+    document.querySelectorAll('.dept-btn').forEach(b => b.classList.remove('selected'));
+  } else {
+    document.getElementById('deptPresetSection').querySelector('.dept-grid').style.opacity = '1';
+    document.getElementById('deptPresetSection').querySelector('.dept-grid').style.pointerEvents = '';
+    document.getElementById('deptInputSection').style.display = 'none';
+    document.getElementById('inputDept').value = '';
+  }
+}
+
+// =========================================================
+// FORM VALIDATION
+// =========================================================
+function validateForm() {
+  let valid = true;
+
+  // Name
+  const name = document.getElementById('inputName').value.trim();
+  if (!name) {
+    document.getElementById('nameError').classList.add('show');
+    document.getElementById('inputName').classList.add('error');
+    valid = false;
+  } else {
+    document.getElementById('nameError').classList.remove('show');
+    document.getElementById('inputName').classList.remove('error');
+  }
+
+  // Department
+  let dept = '';
+  if (isDirectDeptInput) {
+    dept = document.getElementById('inputDept').value.trim();
+  } else {
+    dept = selectedDept;
+  }
+
+  if (!dept) {
+    document.getElementById('deptError').classList.add('show');
+    valid = false;
+  } else {
+    document.getElementById('deptError').classList.remove('show');
+  }
+
+  return { valid, name, dept };
+}
+
+// =========================================================
+// SUBMIT ATTENDANCE
+// =========================================================
+async function submitAttendance(event) {
+  // Ripple effect
+  const btn = document.getElementById('submitBtn');
+  const rect = btn.getBoundingClientRect();
+  const ripple = document.createElement('span');
+  ripple.className = 'btn-ripple';
+  const size = Math.max(rect.width, rect.height);
+  ripple.style.cssText = `width:${size}px;height:${size}px;left:${event.clientX - rect.left - size/2}px;top:${event.clientY - rect.top - size/2}px`;
+  btn.appendChild(ripple);
+  setTimeout(() => ripple.remove(), 700);
+
+  // Validate
+  const { valid, name, dept } = validateForm();
+  if (!valid) return;
+
+  if (!supabaseClient || !currentSession) {
+    showErrorOverlay('연결 오류', '서버 연결에 실패했습니다. 페이지를 새로고침 해주세요.');
+    return;
+  }
+
+  // Disable button
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> 등록 중...';
+
+  try {
+    // Check for duplicate
+    const { data: existing } = await supabaseClient
+      .from('attendances')
+      .select('id, name')
+      .eq('session_id', currentSession.id)
+      .eq('name', name)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      document.getElementById('alreadyCard').classList.add('show');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-clipboard-check"></i> 출석 확인';
+      return;
+    }
+
+    // Insert attendance
+    const { data, error } = await supabaseClient
+      .from('attendances')
+      .insert([{
+        session_id: currentSession.id,
+        name: name,
+        department: dept
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Success!
+    showSuccessOverlay(name, dept, data.attended_at);
+
+  } catch (e) {
+    console.error('submitAttendance error:', e);
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-clipboard-check"></i> 출석 확인';
+    showErrorOverlay('출석 등록 실패', e.message || '잠시 후 다시 시도해주세요.');
+  }
+}
+
+// =========================================================
+// OVERLAYS
+// =========================================================
+function showSuccessOverlay(name, dept, attendedAt) {
+  document.getElementById('successName').textContent = name;
+  document.getElementById('successDept').textContent = `${dept} · ${formatDateTime(attendedAt)}`;
+  document.getElementById('successTime').textContent = `${currentSession?.name || ''} 교육`;
+  document.getElementById('successOverlay').classList.add('show');
+
+  // Vibrate (mobile)
+  if (navigator.vibrate) {
+    navigator.vibrate([100, 50, 100]);
+  }
+}
+
+function showErrorOverlay(title, sub) {
+  document.getElementById('errorTitle').textContent = title;
+  document.getElementById('errorSub').textContent = sub;
+  document.getElementById('errorOverlay').classList.add('show');
+}
+
+function closeErrorOverlay() {
+  document.getElementById('errorOverlay').classList.remove('show');
+}
+
+function goBack() {
+  document.getElementById('successOverlay').classList.remove('show');
+  document.getElementById('alreadyCard').classList.remove('show');
+
+  // Reset form
+  document.getElementById('inputName').value = '';
+  document.querySelectorAll('.dept-btn').forEach(b => b.classList.remove('selected'));
+  selectedDept = '';
+
+  if (isDirectDeptInput) {
+    document.getElementById('inputDept').value = '';
+  }
+
+  // Reset button
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fa-solid fa-clipboard-check"></i> 출석 확인';
+
+  // Focus name
+  setTimeout(() => document.getElementById('inputName').focus(), 300);
+}
+
+// =========================================================
+// UTILITIES
+// =========================================================
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+
+function formatDateTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return `${d.getMonth()+1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+// Enter key submit
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    const activeEl = document.activeElement;
+    if (activeEl.id === 'inputName' || activeEl.id === 'inputDept') {
+      submitAttendance({ clientX: 0, clientY: 0 });
+    }
+  }
+});
+
+// Clear error on input
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('inputName').addEventListener('input', () => {
+    document.getElementById('nameError').classList.remove('show');
+    document.getElementById('inputName').classList.remove('error');
+    document.getElementById('alreadyCard').classList.remove('show');
+  });
+});
+</script>
+</body>
+</html>

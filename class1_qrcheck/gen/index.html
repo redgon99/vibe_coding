@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🔥 소방서 QR 출석관리 시스템</title>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --red-primary: #D32F2F;
+      --red-dark: #B71C1C;
+      --red-light: #EF5350;
+      --red-ultra-light: #FFEBEE;
+      --orange: #FF6F00;
+      --white: #FFFFFF;
+      --gray-50: #FAFAFA;
+      --gray-100: #F5F5F5;
+      --gray-200: #EEEEEE;
+      --gray-300: #E0E0E0;
+      --gray-400: #BDBDBD;
+      --gray-500: #9E9E9E;
+      --gray-600: #757575;
+      --gray-700: #616161;
+      --gray-800: #424242;
+      --gray-900: #212121;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.15);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.18);
+      --shadow-xl: 0 16px 40px rgba(0,0,0,0.22);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 20px;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Noto Sans KR', sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-900);
+      min-height: 100vh;
+    }
+
+    /* ===== HEADER ===== */
+    header {
+      background: linear-gradient(135deg, var(--red-dark) 0%, var(--red-primary) 60%, var(--red-light) 100%);
+      color: var(--white);
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: var(--shadow-lg);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo {
+      width: 40px;
+      height: 40px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+
+    .header-subtitle {
+      font-size: 12px;
+      opacity: 0.8;
+      margin-top: 1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .realtime-badge {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .realtime-dot {
+      width: 8px;
+      height: 8px;
+      background: #69FF47;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+
+    /* ===== MAIN LAYOUT ===== */
+    .main-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      height: calc(100vh - 64px);
+      overflow: hidden;
+    }
+
+    /* ===== PANEL COMMON ===== */
+    .panel {
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .panel-left {
+      background: var(--gray-50);
+      border-right: 1px solid var(--gray-300);
+    }
+
+    .panel-right {
+      background: var(--white);
+    }
+
+    .panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--red-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--red-ultra-light);
+      margin-bottom: 4px;
+    }
+
+    /* ===== CARDS ===== */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--gray-200);
+    }
+
+    .card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--gray-700);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .card-title .label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ===== STATS ROW ===== */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat-item {
+      background: var(--red-ultra-light);
+      border-radius: var(--radius-md);
+      padding: 12px 10px;
+      text-align: center;
+    }
+
+    .stat-item.blue { background: #E3F2FD; }
+    .stat-item.green { background: #E8F5E9; }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--red-primary);
+      line-height: 1;
+    }
+    .stat-item.blue .stat-value { color: #1565C0; }
+    .stat-item.green .stat-value { color: #2E7D32; }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--gray-600);
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* ===== SESSION LIST ===== */
+    .session-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .session-item {
+      background: var(--gray-50);
+      border: 1.5px solid var(--gray-200);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .session-item:hover {
+      border-color: var(--red-light);
+      background: var(--red-ultra-light);
+    }
+
+    .session-item.active {
+      border-color: var(--red-primary);
+      background: var(--red-ultra-light);
+      box-shadow: 0 0 0 3px rgba(211,47,47,0.1);
+    }
+
+    .session-info .session-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--gray-900);
+    }
+
+    .session-info .session-date {
+      font-size: 11px;
+      color: var(--gray-500);
+      margin-top: 2px;
+    }
+
+    .session-badge {
+      background: var(--red-primary);
+      color: white;
+      border-radius: 12px;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      min-width: 36px;
+      text-align: center;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 24px 16px;
+      color: var(--gray-500);
+      font-size: 13px;
+    }
+
+    .empty-state i {
+      font-size: 32px;
+      display: block;
+      margin-bottom: 8px;
+      opacity: 0.4;
+    }
+
+    /* ===== ATTENDANCE TABLE ===== */
+    .attendance-table-wrap {
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .attendance-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .attendance-table thead th {
+      background: var(--gray-100);
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      color: var(--gray-600);
+      position: sticky;
+      top: 0;
+      border-bottom: 1px solid var(--gray-300);
+    }
+
+    .attendance-table tbody td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--gray-100);
+      color: var(--gray-800);
+    }
+
+    .attendance-table tbody tr:hover {
+      background: var(--red-ultra-light);
+    }
+
+    .attendance-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .dept-tag {
+      background: var(--red-ultra-light);
+      color: var(--red-primary);
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .time-tag {
+      color: var(--gray-500);
+      font-size: 11px;
+    }
+
+    /* ===== CHART AREA ===== */
+    .chart-container {
+      position: relative;
+      height: 200px;
+    }
+
+    /* ===== FORM AREA ===== */
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--gray-300);
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-family: 'Noto Sans KR', sans-serif;
+      transition: border-color 0.2s;
+      outline: none;
+      background: var(--white);
+    }
+
+    .form-input:focus {
+      border-color: var(--red-primary);
+      box-shadow: 0 0 0 3px rgba(211,47,47,0.1);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 20px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--red-primary), var(--red-dark));
+      color: white;
+      box-shadow: 0 2px 8px rgba(211,47,47,0.4);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(211,47,47,0.5);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--red-primary);
+      border: 1.5px solid var(--red-primary);
+    }
+
+    .btn-outline:hover {
+      background: var(--red-ultra-light);
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    .btn-sm {
+      padding: 6px 14px;
+      font-size: 12px;
+    }
+
+    /* ===== QR CODE ===== */
+    .qr-wrapper {
+      background: white;
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      border: 2px dashed var(--gray-300);
+      text-align: center;
+      min-height: 180px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .qr-wrapper.has-qr {
+      border-color: var(--red-primary);
+      background: var(--red-ultra-light);
+    }
+
+    .qr-placeholder {
+      color: var(--gray-400);
+      font-size: 13px;
+    }
+
+    .qr-placeholder i {
+      font-size: 40px;
+      display: block;
+      margin-bottom: 8px;
+    }
+
+    #qrcode canvas, #qrcode img {
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-md);
+    }
+
+    .qr-session-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--red-primary);
+    }
+
+    .qr-url {
+      font-size: 10px;
+      color: var(--gray-500);
+      word-break: break-all;
+      max-width: 100%;
+    }
+
+    .qr-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ===== MODAL ===== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.25s;
+    }
+
+    .modal-overlay.show {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .modal {
+      background: white;
+      border-radius: var(--radius-xl);
+      width: 100%;
+      max-width: 500px;
+      max-height: 85vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(20px) scale(0.97);
+      transition: transform 0.25s;
+      box-shadow: var(--shadow-xl);
+    }
+
+    .modal-overlay.show .modal {
+      transform: translateY(0) scale(1);
+    }
+
+    .modal-header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--gray-200);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: var(--gray-100);
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gray-600);
+      transition: all 0.2s;
+    }
+
+    .modal-close:hover {
+      background: var(--gray-200);
+      color: var(--gray-900);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .modal-footer {
+      padding: 16px 20px;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    /* ===== TOAST ===== */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: var(--gray-900);
+      color: white;
+      padding: 12px 18px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: toastIn 0.3s ease forwards;
+      min-width: 220px;
+    }
+
+    .toast.success { background: #2E7D32; }
+    .toast.error { background: var(--red-primary); }
+    .toast.info { background: #1565C0; }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes toastOut {
+      from { opacity: 1; transform: translateX(0); }
+      to { opacity: 0; transform: translateX(20px); }
+    }
+
+    /* ===== SUPABASE CONFIG MODAL ===== */
+    .config-warning {
+      background: #FFF8E1;
+      border: 1.5px solid #F9A825;
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      font-size: 12px;
+      color: #E65100;
+      display: flex;
+      gap: 8px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--gray-300);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--gray-400);
+    }
+
+    /* ===== LOADING SPINNER ===== */
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2.5px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: inline-block;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-row {
+      text-align: center;
+      padding: 16px;
+      color: var(--gray-400);
+      font-size: 12px;
+    }
+
+    /* ===== SECTION DIVIDER ===== */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gray-600);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 900px) {
+      .main-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        overflow: visible;
+      }
+
+      .panel {
+        height: auto;
+      }
+
+      header {
+        padding: 0 16px;
+      }
+
+      .header-title {
+        font-size: 15px;
+      }
+
+      .stats-row {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header-subtitle { display: none; }
+      .realtime-badge { display: none; }
+    }
+
+    /* No session selected placeholder */
+    .no-session-placeholder {
+      background: var(--gray-50);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
+      color: var(--gray-400);
+      font-size: 13px;
+      border: 1.5px dashed var(--gray-300);
+    }
+
+    .no-session-placeholder i {
+      font-size: 28px;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    /* Config btn in header */
+    .btn-config {
+      background: rgba(255,255,255,0.2);
+      border: 1px solid rgba(255,255,255,0.4);
+      color: white;
+      border-radius: var(--radius-sm);
+      padding: 6px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+    }
+
+    .btn-config:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    .connection-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #9E9E9E;
+    }
+    .status-dot.connected { background: #69FF47; animation: pulse 1.5s infinite; }
+    .status-dot.error { background: #FF5252; }
+
+    /* Delete btn for session */
+    .btn-delete-session {
+      background: transparent;
+      border: none;
+      color: var(--gray-400);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      font-size: 12px;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-delete-session:hover {
+      color: var(--red-primary);
+      background: rgba(211,47,47,0.08);
+    }
+
+    /* Badge for active indicator */
+    .active-badge {
+      background: #E8F5E9;
+      color: #2E7D32;
+      border-radius: 4px;
+      padding: 2px 7px;
+      font-size: 10px;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+
+    /* QR Print area */
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        text-align: center;
+        padding: 40px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header>
+  <div class="header-left">
+    <div class="header-logo">🔥</div>
+    <div>
+      <div class="header-title">소방서 QR 출석관리 시스템</div>
+      <div class="header-subtitle">Fire Station QR Attendance Management</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="connection-status">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText" style="font-size:11px;color:rgba(255,255,255,0.8)">미연결</span>
+    </div>
+    <button class="btn-config" onclick="openConfigModal()">
+      <i class="fa-solid fa-gear"></i> DB 설정
+    </button>
+  </div>
+</header>
+
+<!-- ===== MAIN LAYOUT ===== -->
+<div class="main-container">
+
+  <!-- ========== LEFT PANEL: 교육 관리 공간 ========== -->
+  <div class="panel panel-left">
+    <div class="panel-title">
+      <i class="fa-solid fa-clipboard-list"></i>
+      교육 관리 공간
+    </div>
+
+    <!-- 통계 요약 -->
+    <div class="card">
+      <div class="card-title">
+        <div class="label"><i class="fa-solid fa-chart-bar" style="color:var(--red-primary)"></i> 전체 현황</div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="stat-value" id="totalSessions">0</div>
+          <div class="stat-label">전체 세션</div>
+        </div>
+        <div class="stat-item blue">
+          <div class="stat-value" id="totalAttendees">0</div>
+          <div class="stat-label">총 출석자</div>
+        </div>
+        <div class="stat-item green">
+          <div class="stat-value" id="todayAttendees">0</div>
+          <div class="stat-label">오늘 출석</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 교육 세션 목록 -->
+    <div class="card">
+      <div class="card-title">
+        <div class="label"><i class="fa-solid fa-list-ul" style="color:var(--red-primary)"></i> 교육 세션 목록</div>
+        <button class="btn btn-outline btn-sm" onclick="loadSessions()">
+          <i class="fa-solid fa-rotate-right"></i> 새로고침
+        </button>
+      </div>
+      <div class="session-list" id="sessionList">
+        <div class="loading-row"><div class="spinner" style="border-color:rgba(0,0,0,0.1);border-top-color:var(--red-primary);margin:auto;"></div></div>
+      </div>
+    </div>
+
+    <!-- 선택된 세션 출석 현황 -->
+    <div class="card" id="attendanceCard">
+      <div class="card-title">
+        <div class="label"><i class="fa-solid fa-users" style="color:var(--red-primary)"></i> 출석 현황</div>
+        <button class="btn btn-outline btn-sm" id="viewAllBtn" onclick="openAttendanceModal()" style="display:none">
+          전체보기
+        </button>
+      </div>
+      <div id="attendanceContent">
+        <div class="no-session-placeholder">
+          <i class="fa-solid fa-hand-pointer"></i>
+          좌측 세션을 선택하면<br>출석 현황이 표시됩니다
+        </div>
+      </div>
+    </div>
+
+    <!-- 부서별 통계 차트 -->
+    <div class="card">
+      <div class="card-title">
+        <div class="label"><i class="fa-solid fa-chart-pie" style="color:var(--red-primary)"></i> 부서별 출석 통계</div>
+      </div>
+      <div class="chart-container">
+        <canvas id="deptChart"></canvas>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ========== RIGHT PANEL: 교육 생성 공간 ========== -->
+  <div class="panel panel-right">
+    <div class="panel-title">
+      <i class="fa-solid fa-plus-circle"></i>
+      교육 생성 공간
+    </div>
+
+    <!-- 세션 생성 폼 -->
+    <div class="card">
+      <div class="card-title">
+        <div class="label"><i class="fa-solid fa-calendar-plus" style="color:var(--red-primary)"></i> 새 교육 세션 생성</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">📅 교육 날짜 <span style="color:var(--red-primary)">*</span></label>
+        <input type="date" class="form-input" id="sessionDate" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">📚 교육명 <span style="color:var(--red-primary)">*</span></label>
+        <input type="text" class="form-input" id="sessionName" placeholder="예: 소방 안전 교육, 구급 훈련 등" />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">📝 교육 설명 (선택)</label>
+        <input type="text" class="form-input" id="sessionDesc" placeholder="교육에 대한 간략한 설명" />
+      </div>
+
+      <button class="btn btn-primary btn-block" id="createSessionBtn" onclick="createSession()">
+        <i class="fa-solid fa-qrcode"></i>
+        세션 생성 및 QR코드 발급
+      </button>
+    </div>
+
+    <!-- QR 코드 표시 -->
+    <div class="card">
+      <div class="card-title">
+        <div class="label"><i class="fa-solid fa-qrcode" style="color:var(--red-primary)"></i> QR 코드</div>
+        <div id="qrSessionBadge" style="display:none">
+          <span class="active-badge"><i class="fa-solid fa-circle" style="font-size:7px;"></i> 활성</span>
+        </div>
+      </div>
+
+      <div class="qr-wrapper" id="qrWrapper">
+        <div class="qr-placeholder">
+          <i class="fa-solid fa-qrcode"></i>
+          세션을 생성하면<br>QR코드가 자동 생성됩니다
+        </div>
+      </div>
+
+      <div id="qrActions" style="display:none;margin-top:12px;">
+        <div class="qr-actions">
+          <button class="btn btn-primary btn-sm" onclick="downloadQR()">
+            <i class="fa-solid fa-download"></i> 저장
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="printQR()">
+            <i class="fa-solid fa-print"></i> 인쇄
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="copyQRLink()">
+            <i class="fa-solid fa-link"></i> 링크 복사
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 현재 선택된 QR 세션 정보 -->
+    <div class="card" id="currentQRInfo" style="display:none">
+      <div class="card-title">
+        <div class="label"><i class="fa-solid fa-circle-info" style="color:var(--red-primary)"></i> 현재 세션 정보</div>
+      </div>
+      <div id="qrSessionDetail"></div>
+    </div>
+
+    <!-- 세션 목록 QR 재출력 -->
+    <div class="card">
+      <div class="card-title">
+        <div class="label"><i class="fa-solid fa-clock-rotate-left" style="color:var(--red-primary)"></i> 기존 세션 QR 재발급</div>
+      </div>
+      <div class="session-list" id="sessionListForQR" style="max-height:200px;">
+        <div class="loading-row" style="color:var(--gray-400);font-size:12px;">세션 목록 로딩 중...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== MODAL: DB 설정 ===== -->
+<div class="modal-overlay" id="configModal">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <div class="modal-title"><i class="fa-solid fa-gear"></i> Supabase DB 설정</div>
+      <button class="modal-close" onclick="closeModal('configModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="config-warning">
+        <i class="fa-solid fa-triangle-exclamation" style="margin-top:1px;flex-shrink:0;"></i>
+        <div>
+          <strong>Supabase 연결 정보를 입력해주세요.</strong><br>
+          Supabase 대시보드 → <b>Project Settings → API</b> 에서 확인 가능합니다.<br>
+          <span style="font-size:11px;opacity:0.85;">※ 아래 SQL을 먼저 실행한 후 저장하세요.</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">🔗 Project URL</label>
+        <input type="url" class="form-input" id="inputSupabaseUrl"
+          placeholder="https://abcdefgh.supabase.co"
+          autocomplete="off" autocorrect="off" spellcheck="false" />
+        <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">예: https://<b>프로젝트ID</b>.supabase.co</div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">🔑 Anon (public) Key</label>
+        <input type="text" class="form-input" id="inputSupabaseKey"
+          placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          autocomplete="off" autocorrect="off" spellcheck="false" />
+        <div style="font-size:11px;color:var(--gray-500);margin-top:4px;">anon / public 키 (service_role 키 아님)</div>
+      </div>
+
+      <div style="background:var(--gray-50);border-radius:var(--radius-md);padding:12px;margin-top:4px;">
+        <div style="font-size:12px;font-weight:700;color:var(--gray-700);margin-bottom:8px;">
+          <i class="fa-solid fa-database"></i> Supabase SQL 설정 (최초 1회)
+        </div>
+        <pre style="font-size:10px;color:var(--gray-700);background:var(--gray-900);color:#69FF47;padding:10px;border-radius:var(--radius-sm);overflow-x:auto;line-height:1.5;">-- sessions 테이블
+CREATE TABLE sessions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  date DATE NOT NULL,
+  description TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- attendances 테이블
+CREATE TABLE attendances (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  session_id UUID REFERENCES sessions(id)
+    ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  department TEXT NOT NULL,
+  attended_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS 비활성화 (개발용)
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE attendances ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all_sessions" ON sessions
+  FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_attendances" ON attendances
+  FOR ALL USING (true) WITH CHECK (true);</pre>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="closeModal('configModal')">취소</button>
+      <button class="btn btn-primary btn-sm" onclick="saveConfig()">
+        <i class="fa-solid fa-floppy-disk"></i> 저장 및 연결
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: 전체 출석 명단 ===== -->
+<div class="modal-overlay" id="attendanceModal">
+  <div class="modal" style="max-width:560px;">
+    <div class="modal-header">
+      <div class="modal-title" id="attendanceModalTitle"><i class="fa-solid fa-users"></i> 출석 명단</div>
+      <button class="modal-close" onclick="closeModal('attendanceModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body">
+      <div id="attendanceModalContent"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" onclick="exportCSV()">
+        <i class="fa-solid fa-file-csv"></i> CSV 내보내기
+      </button>
+      <button class="btn btn-primary btn-sm" onclick="closeModal('attendanceModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: QR 크게 보기 ===== -->
+<div class="modal-overlay" id="qrBigModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title" id="qrBigTitle"><i class="fa-solid fa-qrcode"></i> QR 코드</div>
+      <button class="modal-close" onclick="closeModal('qrBigModal')"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" style="text-align:center;padding:24px;">
+      <div id="qrBigCode"></div>
+      <div id="qrBigInfo" style="margin-top:14px;font-size:13px;color:var(--gray-600);"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-sm" onclick="downloadQR()">
+        <i class="fa-solid fa-download"></i> 저장
+      </button>
+      <button class="btn btn-outline btn-sm" onclick="printQR()">
+        <i class="fa-solid fa-print"></i> 인쇄
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TOAST CONTAINER ===== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Print Area -->
+<div id="print-area" style="display:none;text-align:center;padding:40px;">
+  <h2 style="margin-bottom:16px;color:#D32F2F;">🔥 소방서 QR 출석 코드</h2>
+  <div id="printQRHolder"></div>
+  <p id="printSessionName" style="margin-top:16px;font-size:18px;font-weight:bold;"></p>
+  <p id="printSessionDate" style="font-size:14px;color:#666;"></p>
+  <p style="font-size:12px;color:#999;margin-top:12px;">QR코드를 스캔하여 출석을 등록하세요</p>
+</div>
+
+<script>
+// =========================================================
+// SUPABASE CONFIGURATION
+// =========================================================
+let supabaseClient = null;
+let realtimeChannel = null;
+let currentSessionId = null;
+let currentQRSessionId = null;
+let currentQRUrl = '';
+let deptChart = null;
+let allSessions = [];
+let currentAttendances = [];
+
+const STORAGE_KEY_URL = 'sb_url';
+const STORAGE_KEY_KEY = 'sb_key';
+
+function getStoredConfig() {
+  return {
+    url: localStorage.getItem(STORAGE_KEY_URL) || '',
+    key: localStorage.getItem(STORAGE_KEY_KEY) || ''
+  };
+}
+
+function initSupabase(url, key) {
+  try {
+    if (realtimeChannel && supabaseClient) {
+      supabaseClient.removeChannel(realtimeChannel);
+      realtimeChannel = null;
+    }
+    supabaseClient = window.supabase.createClient(url, key, {
+      auth: { persistSession: false }
+    });
+    return true;
+  } catch (e) {
+    console.error('Supabase init error:', e);
+    supabaseClient = null;
+    return false;
+  }
+}
+
+function updateConnectionStatus(connected) {
+  const dot = document.getElementById('statusDot');
+  const text = document.getElementById('statusText');
+  if (connected) {
+    dot.className = 'status-dot connected';
+    text.textContent = '연결됨';
+  } else {
+    dot.className = 'status-dot error';
+    text.textContent = '연결 오류';
+  }
+}
+
+function openConfigModal() {
+  const config = getStoredConfig();
+  document.getElementById('inputSupabaseUrl').value = config.url;
+  document.getElementById('inputSupabaseKey').value = config.key;
+  openModal('configModal');
+}
+
+async function saveConfig() {
+  const url = document.getElementById('inputSupabaseUrl').value.trim();
+  const key = document.getElementById('inputSupabaseKey').value.trim();
+
+  if (!url || !key) {
+    showToast('URL과 Key를 모두 입력해주세요.', 'error');
+    return;
+  }
+
+  // URL 형식 기본 검증
+  if (!url.startsWith('https://') || !url.includes('.supabase.co')) {
+    showToast('올바른 Supabase URL 형식이 아닙니다.\n예: https://xxxx.supabase.co', 'error');
+    return;
+  }
+
+  // 버튼 로딩 상태
+  const saveBtn = document.querySelector('#configModal .btn-primary');
+  const origHtml = saveBtn.innerHTML;
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<div class="spinner"></div> 연결 중...';
+
+  try {
+    // 클라이언트 초기화
+    const created = initSupabase(url, key);
+    if (!created) throw new Error('클라이언트 생성 실패');
+
+    // 실제 DB 쿼리로 연결 검증 (sessions 테이블 1건 조회)
+    const { error } = await supabaseClient
+      .from('sessions')
+      .select('id')
+      .limit(1);
+
+    if (error) {
+      // 테이블이 없는 경우도 연결 자체는 성공으로 처리
+      if (error.code === '42P01') {
+        // 테이블 미생성 - 연결은 성공, 테이블 생성 안내
+        localStorage.setItem(STORAGE_KEY_URL, url);
+        localStorage.setItem(STORAGE_KEY_KEY, key);
+        setupRealtime();
+        updateConnectionStatus(true);
+        closeModal('configModal');
+        showToast('연결 성공! ⚠️ SQL에서 테이블을 먼저 생성해주세요.', 'info');
+        return;
+      }
+      throw new Error(error.message);
+    }
+
+    // 완전 성공
+    localStorage.setItem(STORAGE_KEY_URL, url);
+    localStorage.setItem(STORAGE_KEY_KEY, key);
+    setupRealtime();
+    updateConnectionStatus(true);
+    closeModal('configModal');
+    showToast('Supabase 연결 성공! 🎉', 'success');
+    await loadAll();
+
+  } catch (e) {
+    console.error('saveConfig error:', e);
+    supabaseClient = null;
+    updateConnectionStatus(false);
+    let msg = '연결에 실패했습니다.';
+    if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+      msg = '네트워크 오류: URL을 확인해주세요.';
+    } else if (e.message.includes('Invalid API key') || e.message.includes('JWT')) {
+      msg = 'API Key가 올바르지 않습니다.';
+    } else if (e.message) {
+      msg = e.message;
+    }
+    showToast('❌ ' + msg, 'error');
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.innerHTML = origHtml;
+  }
+}
+
+// =========================================================
+// REALTIME
+// =========================================================
+function setupRealtime() {
+  if (!supabaseClient) return;
+
+  realtimeChannel = supabaseClient
+    .channel('attendance-changes')
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'attendances'
+    }, (payload) => {
+      console.log('New attendance:', payload);
+      handleNewAttendance(payload.new);
+    })
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'sessions'
+    }, (payload) => {
+      loadSessions();
+    })
+    .subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        console.log('Realtime connected!');
+      }
+    });
+}
+
+function handleNewAttendance(newRecord) {
+  // 현재 선택된 세션의 출석이면 즉시 업데이트
+  if (currentSessionId && newRecord.session_id === currentSessionId) {
+    currentAttendances.push(newRecord);
+    renderAttendanceTable(currentAttendances);
+    updateSessionBadge(currentSessionId, currentAttendances.length);
+  }
+  loadStats();
+  updateDeptChart();
+  showToast(`${newRecord.name} (${newRecord.department}) 출석 등록!`, 'success');
+}
+
+// =========================================================
+// DATA LOADING
+// =========================================================
+async function loadAll() {
+  await Promise.all([
+    loadSessions(),
+    loadStats(),
+    updateDeptChart()
+  ]);
+}
+
+async function loadSessions() {
+  if (!supabaseClient) {
+    renderSessionList([]);
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('sessions')
+      .select('*, attendances(count)')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    allSessions = data || [];
+    renderSessionList(allSessions);
+    renderSessionListForQR(allSessions);
+    document.getElementById('totalSessions').textContent = allSessions.length;
+  } catch (e) {
+    console.error('loadSessions error:', e);
+    renderSessionList([]);
+    showToast('세션 로드 실패: ' + e.message, 'error');
+  }
+}
+
+async function loadStats() {
+  if (!supabaseClient) return;
+
+  try {
+    const today = new Date().toISOString().split('T')[0];
+
+    const { count: totalCount } = await supabaseClient
+      .from('attendances')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: todayCount } = await supabaseClient
+      .from('attendances')
+      .select('*', { count: 'exact', head: true })
+      .gte('attended_at', today + 'T00:00:00.000Z')
+      .lt('attended_at', today + 'T23:59:59.999Z');
+
+    document.getElementById('totalAttendees').textContent = totalCount || 0;
+    document.getElementById('todayAttendees').textContent = todayCount || 0;
+  } catch (e) {
+    console.error('loadStats error:', e);
+  }
+}
+
+async function loadAttendances(sessionId) {
+  if (!supabaseClient || !sessionId) return [];
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('attendances')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('attended_at', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.error('loadAttendances error:', e);
+    return [];
+  }
+}
+
+async function updateDeptChart() {
+  if (!supabaseClient) {
+    renderDeptChart({});
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('attendances')
+      .select('department');
+
+    if (error) throw error;
+
+    const deptMap = {};
+    (data || []).forEach(row => {
+      deptMap[row.department] = (deptMap[row.department] || 0) + 1;
+    });
+
+    renderDeptChart(deptMap);
+  } catch (e) {
+    console.error('updateDeptChart error:', e);
+  }
+}
+
+// =========================================================
+// SESSION MANAGEMENT
+// =========================================================
+async function createSession() {
+  const name = document.getElementById('sessionName').value.trim();
+  const date = document.getElementById('sessionDate').value;
+  const desc = document.getElementById('sessionDesc').value.trim();
+
+  if (!name) {
+    showToast('교육명을 입력해주세요.', 'error');
+    document.getElementById('sessionName').focus();
+    return;
+  }
+  if (!date) {
+    showToast('교육 날짜를 선택해주세요.', 'error');
+    document.getElementById('sessionDate').focus();
+    return;
+  }
+
+  if (!supabaseClient) {
+    showToast('먼저 DB 설정을 완료해주세요.', 'error');
+    openConfigModal();
+    return;
+  }
+
+  const btn = document.getElementById('createSessionBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> 생성 중...';
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('sessions')
+      .insert([{ name, date, description: desc || null }])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    showToast(`"${name}" 세션이 생성되었습니다!`, 'success');
+    document.getElementById('sessionName').value = '';
+    document.getElementById('sessionDesc').value = '';
+    document.getElementById('sessionDate').value = '';
+
+    await loadSessions();
+    generateQRForSession(data);
+
+  } catch (e) {
+    console.error('createSession error:', e);
+    showToast('세션 생성 실패: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fa-solid fa-qrcode"></i> 세션 생성 및 QR코드 발급';
+  }
+}
+
+async function deleteSession(sessionId, sessionName, e) {
+  e.stopPropagation();
+  if (!confirm(`"${sessionName}" 세션을 삭제하시겠습니까?\n(관련 출석 기록도 모두 삭제됩니다)`)) return;
+
+  try {
+    const { error } = await supabaseClient
+      .from('sessions')
+      .delete()
+      .eq('id', sessionId);
+
+    if (error) throw error;
+
+    showToast(`"${sessionName}" 세션이 삭제되었습니다.`, 'info');
+    if (currentSessionId === sessionId) {
+      currentSessionId = null;
+      renderAttendanceTable([]);
+      document.getElementById('viewAllBtn').style.display = 'none';
+    }
+    if (currentQRSessionId === sessionId) {
+      currentQRSessionId = null;
+      clearQR();
+    }
+    await loadAll();
+
+  } catch (e) {
+    console.error('deleteSession error:', e);
+    showToast('삭제 실패: ' + e.message, 'error');
+  }
+}
+
+// =========================================================
+// SESSION SELECTION
+// =========================================================
+async function selectSession(sessionId, sessionName) {
+  currentSessionId = sessionId;
+
+  // Highlight selected session
+  document.querySelectorAll('.session-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === sessionId);
+  });
+
+  document.getElementById('viewAllBtn').style.display = 'flex';
+  document.getElementById('attendanceContent').innerHTML = `<div class="loading-row"><div class="spinner" style="border-color:rgba(0,0,0,0.1);border-top-color:var(--red-primary);margin:auto;"></div></div>`;
+
+  currentAttendances = await loadAttendances(sessionId);
+  renderAttendanceTable(currentAttendances);
+}
+
+// =========================================================
+// QR CODE
+// =========================================================
+function generateQRForSession(session) {
+  currentQRSessionId = session.id;
+  const baseUrl = window.location.href.replace('index.html', '').replace(/\/$/, '');
+  const qrUrl = `${baseUrl}/qrcheck.html?session=${session.id}`;
+  currentQRUrl = qrUrl;
+
+  const wrapper = document.getElementById('qrWrapper');
+  wrapper.className = 'qr-wrapper has-qr';
+  wrapper.innerHTML = `
+    <div class="qr-session-name">📋 ${session.name}</div>
+    <div id="qrcode"></div>
+    <div class="qr-url">${qrUrl}</div>
+    <button class="btn btn-outline btn-sm" onclick="openQRBigModal('${session.id}','${session.name}')">
+      <i class="fa-solid fa-expand"></i> 크게 보기
+    </button>
+  `;
+
+  new QRCode(document.getElementById('qrcode'), {
+    text: qrUrl,
+    width: 160,
+    height: 160,
+    colorDark: '#D32F2F',
+    colorLight: '#FFFFFF',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  document.getElementById('qrActions').style.display = 'block';
+  document.getElementById('qrSessionBadge').style.display = 'flex';
+
+  // Show session detail
+  const infoDiv = document.getElementById('currentQRInfo');
+  infoDiv.style.display = 'block';
+  document.getElementById('qrSessionDetail').innerHTML = `
+    <table style="width:100%;font-size:12px;">
+      <tr>
+        <td style="padding:6px 0;color:var(--gray-500);width:80px;">교육명</td>
+        <td style="padding:6px 0;font-weight:600;">${session.name}</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 0;color:var(--gray-500);">날짜</td>
+        <td style="padding:6px 0;font-weight:600;">${formatDate(session.date)}</td>
+      </tr>
+      ${session.description ? `<tr>
+        <td style="padding:6px 0;color:var(--gray-500);">설명</td>
+        <td style="padding:6px 0;">${session.description}</td>
+      </tr>` : ''}
+      <tr>
+        <td style="padding:6px 0;color:var(--gray-500);">세션 ID</td>
+        <td style="padding:6px 0;font-size:10px;color:var(--gray-400);">${session.id}</td>
+      </tr>
+    </table>
+  `;
+}
+
+function clearQR() {
+  const wrapper = document.getElementById('qrWrapper');
+  wrapper.className = 'qr-wrapper';
+  wrapper.innerHTML = `<div class="qr-placeholder"><i class="fa-solid fa-qrcode"></i>세션을 생성하면<br>QR코드가 자동 생성됩니다</div>`;
+  document.getElementById('qrActions').style.display = 'none';
+  document.getElementById('qrSessionBadge').style.display = 'none';
+  document.getElementById('currentQRInfo').style.display = 'none';
+}
+
+function openQRBigModal(sessionId, sessionName) {
+  document.getElementById('qrBigTitle').innerHTML = `<i class="fa-solid fa-qrcode"></i> ${sessionName}`;
+  const bigCodeDiv = document.getElementById('qrBigCode');
+  bigCodeDiv.innerHTML = '';
+
+  const baseUrl = window.location.href.replace('index.html', '').replace(/\/$/, '');
+  const qrUrl = `${baseUrl}/qrcheck.html?session=${sessionId}`;
+
+  new QRCode(bigCodeDiv, {
+    text: qrUrl,
+    width: 250,
+    height: 250,
+    colorDark: '#D32F2F',
+    colorLight: '#FFFFFF',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  document.getElementById('qrBigInfo').innerHTML = `
+    <div style="margin-top:8px;padding:10px;background:var(--gray-50);border-radius:var(--radius-sm);word-break:break-all;font-size:11px;color:var(--gray-500);">${qrUrl}</div>
+  `;
+  openModal('qrBigModal');
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrcode canvas');
+  if (!canvas) {
+    showToast('QR코드가 없습니다.', 'error');
+    return;
+  }
+  const link = document.createElement('a');
+  link.download = `QR_${currentQRSessionId}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  showToast('QR코드 이미지가 저장되었습니다.', 'success');
+}
+
+function printQR() {
+  const canvas = document.querySelector('#qrcode canvas');
+  if (!canvas) {
+    showToast('QR코드가 없습니다.', 'error');
+    return;
+  }
+
+  const session = allSessions.find(s => s.id === currentQRSessionId);
+  const holder = document.getElementById('printQRHolder');
+  holder.innerHTML = '';
+
+  const img = new Image();
+  img.src = canvas.toDataURL('image/png');
+  img.style.width = '250px';
+  img.style.height = '250px';
+  holder.appendChild(img);
+
+  document.getElementById('printSessionName').textContent = session?.name || '';
+  document.getElementById('printSessionDate').textContent = session ? formatDate(session.date) : '';
+  document.getElementById('print-area').style.display = 'block';
+
+  window.print();
+  setTimeout(() => {
+    document.getElementById('print-area').style.display = 'none';
+  }, 1000);
+}
+
+function copyQRLink() {
+  if (!currentQRUrl) return;
+  navigator.clipboard.writeText(currentQRUrl).then(() => {
+    showToast('링크가 클립보드에 복사되었습니다.', 'success');
+  }).catch(() => {
+    showToast('복사에 실패했습니다.', 'error');
+  });
+}
+
+// =========================================================
+// RENDER FUNCTIONS
+// =========================================================
+function renderSessionList(sessions) {
+  const container = document.getElementById('sessionList');
+  if (!sessions.length) {
+    container.innerHTML = `<div class="empty-state"><i class="fa-solid fa-folder-open"></i>생성된 교육 세션이 없습니다.<br>우측에서 새 세션을 생성해보세요.</div>`;
+    return;
+  }
+
+  container.innerHTML = sessions.map(s => {
+    const count = s.attendances?.[0]?.count || 0;
+    return `
+      <div class="session-item" data-id="${s.id}" onclick="selectSession('${s.id}', '${escapeJs(s.name)}')">
+        <div class="session-info" style="flex:1;min-width:0;">
+          <div class="session-name">${escapeHtml(s.name)}</div>
+          <div class="session-date"><i class="fa-solid fa-calendar-day" style="margin-right:3px;"></i>${formatDate(s.date)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          <div class="session-badge">${count}명</div>
+          <button class="btn-delete-session" onclick="deleteSession('${s.id}','${escapeJs(s.name)}',event)" title="삭제">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  // Re-apply active state
+  if (currentSessionId) {
+    const activeItem = container.querySelector(`[data-id="${currentSessionId}"]`);
+    if (activeItem) activeItem.classList.add('active');
+  }
+}
+
+function renderSessionListForQR(sessions) {
+  const container = document.getElementById('sessionListForQR');
+  if (!sessions.length) {
+    container.innerHTML = `<div style="text-align:center;padding:16px;color:var(--gray-400);font-size:12px;">생성된 세션이 없습니다</div>`;
+    return;
+  }
+
+  container.innerHTML = sessions.map(s => `
+    <div class="session-item" style="cursor:pointer;" onclick="generateQRForSession(${JSON.stringify(s).replace(/"/g,'&quot;')})">
+      <div class="session-info" style="flex:1;min-width:0;">
+        <div class="session-name">${escapeHtml(s.name)}</div>
+        <div class="session-date">${formatDate(s.date)}</div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="flex-shrink:0;" onclick="event.stopPropagation();generateQRForSession(${JSON.stringify(s).replace(/"/g,'&quot;')})">
+        <i class="fa-solid fa-qrcode"></i> QR
+      </button>
+    </div>
+  `).join('');
+}
+
+function renderAttendanceTable(attendances) {
+  const content = document.getElementById('attendanceContent');
+
+  if (!attendances.length) {
+    content.innerHTML = `<div class="empty-state"><i class="fa-solid fa-user-clock"></i>아직 출석자가 없습니다</div>`;
+    return;
+  }
+
+  // Show first 5 rows
+  const rows = attendances.slice(0, 5);
+  const hasMore = attendances.length > 5;
+
+  content.innerHTML = `
+    <div style="margin-bottom:8px;font-size:12px;font-weight:700;color:var(--gray-600);">
+      총 <span style="color:var(--red-primary);font-size:15px;">${attendances.length}</span>명 출석
+    </div>
+    <div class="attendance-table-wrap">
+      <table class="attendance-table">
+        <thead>
+          <tr>
+            <th>이름</th>
+            <th>부서</th>
+            <th>출석 시간</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((a, i) => `
+            <tr>
+              <td><strong>${escapeHtml(a.name)}</strong></td>
+              <td><span class="dept-tag">${escapeHtml(a.department)}</span></td>
+              <td><span class="time-tag">${formatTime(a.attended_at)}</span></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    ${hasMore ? `<div style="text-align:center;padding:8px;font-size:12px;color:var(--gray-500);">...외 ${attendances.length - 5}명 더보기 →</div>` : ''}
+  `;
+}
+
+function updateSessionBadge(sessionId, count) {
+  const item = document.querySelector(`.session-item[data-id="${sessionId}"] .session-badge`);
+  if (item) item.textContent = count + '명';
+}
+
+function renderDeptChart(deptMap) {
+  const ctx = document.getElementById('deptChart').getContext('2d');
+  const labels = Object.keys(deptMap);
+  const values = Object.values(deptMap);
+
+  const colors = [
+    '#D32F2F', '#E53935', '#EF5350',
+    '#FF7043', '#FF8F00', '#FDD835',
+    '#558B2F', '#1565C0', '#6A1B9A',
+    '#00838F', '#37474F', '#BF360C'
+  ];
+
+  if (deptChart) {
+    deptChart.destroy();
+  }
+
+  if (!labels.length) {
+    deptChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['데이터 없음'],
+        datasets: [{
+          data: [0],
+          backgroundColor: '#EEEEEE',
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+      }
+    });
+    return;
+  }
+
+  deptChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '출석 인원',
+        data: values,
+        backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => `${ctx.raw}명`
+          }
+        }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: {
+            stepSize: 1,
+            font: { size: 10 }
+          },
+          grid: { color: '#F5F5F5' }
+        },
+        x: {
+          ticks: { font: { size: 10 } },
+          grid: { display: false }
+        }
+      }
+    }
+  });
+}
+
+// =========================================================
+// ATTENDANCE MODAL
+// =========================================================
+async function openAttendanceModal() {
+  if (!currentSessionId) return;
+
+  const session = allSessions.find(s => s.id === currentSessionId);
+  document.getElementById('attendanceModalTitle').innerHTML =
+    `<i class="fa-solid fa-users"></i> ${session?.name || '출석 명단'}`;
+
+  document.getElementById('attendanceModalContent').innerHTML = `
+    <div class="loading-row"><div class="spinner" style="border-color:rgba(0,0,0,0.1);border-top-color:var(--red-primary);margin:auto;"></div></div>
+  `;
+  openModal('attendanceModal');
+
+  const attendances = await loadAttendances(currentSessionId);
+  currentAttendances = attendances;
+
+  if (!attendances.length) {
+    document.getElementById('attendanceModalContent').innerHTML = `
+      <div class="empty-state"><i class="fa-solid fa-user-clock"></i>아직 출석자가 없습니다</div>
+    `;
+    return;
+  }
+
+  document.getElementById('attendanceModalContent').innerHTML = `
+    <div style="margin-bottom:12px;font-size:13px;color:var(--gray-600);">
+      <strong style="color:var(--red-primary);font-size:18px;">${attendances.length}</strong>명 출석
+    </div>
+    <table class="attendance-table" style="font-size:13px;">
+      <thead>
+        <tr>
+          <th style="width:36px;">#</th>
+          <th>이름</th>
+          <th>부서</th>
+          <th>출석 시간</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${attendances.map((a, i) => `
+          <tr>
+            <td style="color:var(--gray-400);">${i + 1}</td>
+            <td><strong>${escapeHtml(a.name)}</strong></td>
+            <td><span class="dept-tag">${escapeHtml(a.department)}</span></td>
+            <td><span class="time-tag">${formatDateTime(a.attended_at)}</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function exportCSV() {
+  const session = allSessions.find(s => s.id === currentSessionId);
+  if (!currentAttendances.length) {
+    showToast('내보낼 데이터가 없습니다.', 'error');
+    return;
+  }
+
+  const header = '번호,이름,부서,출석시간';
+  const rows = currentAttendances.map((a, i) =>
+    `${i + 1},${a.name},${a.department},${formatDateTime(a.attended_at)}`
+  );
+  const csv = '\uFEFF' + [header, ...rows].join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `출석명단_${session?.name || currentSessionId}_${new Date().toLocaleDateString('ko-KR').replace(/\./g, '').replace(/ /g, '')}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  showToast('CSV 파일이 저장되었습니다.', 'success');
+}
+
+// =========================================================
+// MODAL HELPERS
+// =========================================================
+function openModal(id) {
+  document.getElementById(id).classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// Close on overlay click
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', function(e) {
+    if (e.target === this) {
+      this.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+  });
+});
+
+// =========================================================
+// TOAST
+// =========================================================
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+
+  const iconMap = {
+    success: 'fa-circle-check',
+    error: 'fa-circle-exclamation',
+    info: 'fa-circle-info'
+  };
+
+  toast.innerHTML = `<i class="fa-solid ${iconMap[type] || iconMap.info}"></i> ${message}`;
+  container.appendChild(toast);
+
+  setTimeout(() => {
+    toast.style.animation = 'toastOut 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+}
+
+// =========================================================
+// UTILITY
+// =========================================================
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일`;
+}
+
+function formatTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function formatDateTime(isoStr) {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function escapeJs(str) {
+  if (!str) return '';
+  return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
+
+// =========================================================
+// INIT
+// =========================================================
+window.addEventListener('DOMContentLoaded', () => {
+  // Set today's date
+  document.getElementById('sessionDate').value = new Date().toISOString().split('T')[0];
+
+  // Load stored config
+  const config = getStoredConfig();
+  if (config.url && config.key) {
+    initSupabase(config.url, config.key);
+    loadAll();
+  } else {
+    // Show config modal on first visit
+    document.getElementById('statusText').textContent = '미설정';
+    renderSessionList([]);
+    renderDeptChart({});
+    renderSessionListForQR([]);
+    setTimeout(() => {
+      openConfigModal();
+    }, 800);
+  }
+});
+</script>
+</body>
+</html>
